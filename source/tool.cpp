@@ -24,6 +24,7 @@ CUVTransform::CUVTransform()
     dyna_Add(ATTRs_SCALE_V, LXsTYPE_PERCENT);
     dyna_Add(ATTRs_CENTER_U, LXsTYPE_UVCOORD);
     dyna_Add(ATTRs_CENTER_V, LXsTYPE_UVCOORD);
+    dyna_Add(ATTRs_POLYGON, "&poly");
 
     tool_Reset();
 
@@ -93,7 +94,7 @@ LXtID4 CUVTransform::tool_Task()
  */
 unsigned CUVTransform::tmod_Flags()
 {
-    return LXfTMOD_I0_INPUT | LXfTMOD_DRAW_3D | LXfTMOD_AUTORESET;
+    return LXfTMOD_I0_INPUT | LXfTMOD_DRAW_3D | LXfTMOD_AUTORESET | LXfTMOD_ROLLOVERS;
 }
 
 LxResult CUVTransform::tmod_Enable(ILxUnknownID obj)
@@ -143,7 +144,7 @@ LxResult CUVTransform::HitPolygon(CLxUser_VectorStack& vec)
 	LXtHitElement hit;
     if (rayPkt.HitClosest(vec, LXf_LAYER_ACTIVE, spak->fcx, spak->fcy, &hit))
     {
-        printf("[HIT] poly %p wPos %f %f %f\n", hit.pol, hit.wPos[0], hit.wPos[1], hit.wPos[2]);
+        printf("[HIT] poly %p wPos %f %f %f isUV (%d)\n", hit.pol, hit.wPos[0], hit.wPos[1], hit.wPos[2], hit.isUV);
 	    CLxUser_Mesh mesh;
         CLxUser_Item item;
 
@@ -159,6 +160,20 @@ LxResult CUVTransform::HitPolygon(CLxUser_VectorStack& vec)
         if (!UVMapSetup(m_space.m_vmap))
             return LXe_FALSE;
         m_space.SetPolygon(mesh, xfrm, &hit);
+
+        LXtObjectID			 obj;
+        CLxUser_ValueReference		 ref;
+		CLxUser_Value		 val;
+        attr_Value (ATTRa_POLYGON, &obj, 1);
+        printf("** polygon %p obj %p\n", m_space.m_polygon.ID(), obj);
+		ref.set (obj);
+        //ref.take (obj);
+        ref.SetObject(m_space.m_polygon);
+
+        CLxUser_Polygon polygon;
+        polygon.fromMesh(mesh);
+        ref.GetObject(polygon);
+        printf("== polygon %p\n", polygon.ID());
         return LXe_TRUE;
     }
     return LXe_FALSE;
@@ -173,7 +188,7 @@ LxResult CUVTransform::tmod_Down(ILxUnknownID vts, ILxUnknownID adjust)
     LXpToolScreenEvent*  spak = static_cast<LXpToolScreenEvent*>(vec.Read(offset_screen));
 	LXpToolViewEvent*    view = static_cast<LXpToolViewEvent *>(vec.Read (offset_view));
 
-    if (ipak->mode & IQ_CONSTRAIN)
+    if ((ipak->mode & IQ_CONSTRAIN) || (m_space.m_polygon.test() == false))
     {
         HitPolygon(vec);
         at.SetFlt(ATTRa_CENTER_U, m_space.positionsUV[0].v[0]);
@@ -184,15 +199,9 @@ LxResult CUVTransform::tmod_Down(ILxUnknownID vts, ILxUnknownID adjust)
     CLxUser_EventTranslatePacket epkt;
 	vec.ReadObject (offset_event, epkt);
     epkt.GetNewPosition(vts, m_mousePos);
-#if 0
-    dyna_Value(ATTRa_TRANS_U).GetFlt(&m_trans0[0]);
-    dyna_Value(ATTRa_TRANS_V).GetFlt(&m_trans0[1]);
-    dyna_Value(ATTRa_ANGLE).GetFlt(&m_angle0);
-    dyna_Value(ATTRa_SCALE_U).GetFlt(&m_scale0[0]);
-    dyna_Value(ATTRa_SCALE_V).GetFlt(&m_scale0[1]);
-#endif
-    printf("[DOWN] pos %f %f axis %f %f %f part (%x)\n", 
-        m_mousePos[0], m_mousePos[1], m_axis[0], m_axis[1], m_axis[2], ipak->part);
+
+    printf("[DOWN] pos %f %f axis %f %f %f part (%x) polygon (%d)\n", 
+        m_mousePos[0], m_mousePos[1], m_axis[0], m_axis[1], m_axis[2], ipak->part, m_space.m_polygon.test());
     m_part = ipak->part;
 
     LXtVector dir, pos;
@@ -244,6 +253,7 @@ LxResult CUVTransform::tmod_Down(ILxUnknownID vts, ILxUnknownID adjust)
             //printf("[DOWN] scale_v %f\n", m_scale0[1]);
             break;
         case HANDLE_CENTER:
+        case HANDLE_PLANE:
             dyna_Value(ATTRa_TRANS_U).GetFlt(&m_trans0[0]);
             dyna_Value(ATTRa_TRANS_V).GetFlt(&m_trans0[1]);
             dyna_Value(ATTRa_CENTER_U).GetFlt(&m_center0[0]);
@@ -259,11 +269,24 @@ LxResult CUVTransform::tmod_Down(ILxUnknownID vts, ILxUnknownID adjust)
             dyna_Value(ATTRa_CENTER_V).GetFlt(&m_center0[1]);
             dyna_Value(ATTRa_ANGLE).GetFlt(&m_angle0);
             epkt.ToModel(vts, m_mousePos, m_axis);
-            m_rotHandle.MouseDown(viewId, m_center0, m_axis, m_mousePos);
+            if (view->type == LXi_VIEWTYPE_3D)
+            {
+                m_space.m_view_matrix.getMatrix3x3(m_xfrm);
+                CLxVector translation = m_space.m_view_matrix.getTranslation();
+                LXx_VCPY(pos, translation.v);
+            }
+            else
+            {
+                lx::MatrixIdent(m_xfrm);
+                LXx_VCPY(pos, m_center0);
+            }
+            m_rotHandle.MouseDown(viewId, pos, m_axis, m_mousePos);
             epkt.HitHandle(vts, m_mousePos);
             //epkt.SetPlanarConstraint(vts, m_mousePos, dir);
             break;
         default:
+            dyna_Value(ATTRa_TRANS_U).GetFlt(&m_trans0[0]);
+            dyna_Value(ATTRa_TRANS_V).GetFlt(&m_trans0[1]);
             dyna_Value(ATTRa_CENTER_U).GetFlt(&m_center0[0]);
             dyna_Value(ATTRa_CENTER_V).GetFlt(&m_center0[1]);
             if (view->type == LXi_VIEWTYPE_3D)
@@ -319,30 +342,28 @@ void CUVTransform::tmod_Move(ILxUnknownID vts, ILxUnknownID adjust)
             at.SetFlt(ATTRa_TRANS_V, m_trans0[1] + trans_v);
             at.SetFlt(ATTRa_CENTER_V, m_center0[1] + trans_v);
             break;
+        case HANDLE_PLANE:
+            at.SetFlt(ATTRa_TRANS_U, m_trans0[0] + trans_u);
+            at.SetFlt(ATTRa_TRANS_V, m_trans0[1] + trans_v);
+            at.SetFlt(ATTRa_CENTER_U, m_center0[0] + trans_u);
+            at.SetFlt(ATTRa_CENTER_V, m_center0[1] + trans_v);
+            break;
         case HANDLE_SCALE_U:
             m_offset = trans_u;
             at.SetFlt(ATTRa_SCALE_U, m_scale0[0] + m_offset);
-            //printf("[MOVE] scale_u %f\n", m_scale0[0] + m_offset);
             break;
         case HANDLE_SCALE_V:
             m_offset = trans_v;
             at.SetFlt(ATTRa_SCALE_V, m_scale0[1] + m_offset);
-            //printf("[MOVE] scale_v %f\n", m_scale0[1] + m_offset);
             break;
         case HANDLE_CENTER:
-            //at.SetFlt(ATTRa_TRANS_U, m_trans0[0] + trans_u);
-            //at.SetFlt(ATTRa_TRANS_V, m_trans0[1] + trans_v);
-            //if (view->type == LXi_VIEWTYPE_UV)
-            //{
-                at.SetFlt(ATTRa_CENTER_U, m_center0[0] + trans_u);
-                at.SetFlt(ATTRa_CENTER_V, m_center0[1] + trans_v);
-            //}
+            at.SetFlt(ATTRa_CENTER_U, m_center0[0] + trans_u);
+            at.SetFlt(ATTRa_CENTER_V, m_center0[1] + trans_v);
             break;
         case HANDLE_ROTATE:
             m_rotHandle.MouseMove(pos);
             m_rotHandle.GetAngles(2, m_xfrm, &m_sAngle, &m_eAngle);
             at.SetFlt(ATTRa_ANGLE, m_angle0 + m_rotHandle.m_angle);
-        //printf("[MOVE] cx %d cy %d sAngle %f eAngle %f\n", spak->cx, spak->cy, m_sAngle*LXx_RAD2DEG, m_eAngle*LXx_RAD2DEG);
             break;
         default:
             at.SetFlt(ATTRa_TRANS_U, trans_u);
@@ -428,6 +449,10 @@ void CUVTransform::DrawHandles (ILxUnknownID vts, ILxUnknownID stroke, int flags
 	handle.RotateHandle (pos, m, 2, HANDLE_ROTATE, m_sAngle, m_eAngle, 0, dFlags);
 	//handle.RotateMouseHandle (pos, m_mousePos, m, 2, HANDLE_ROTATE, dFlags);
 
+    // Plane Handle
+	dFlags = (m_part == HANDLE_PLANE) ? LXi_THANDf_HOT : 0;
+	handle.PlaneHandle (pos, m, 2, HANDLE_PLANE, dFlags);
+
 	draw.PopTransform ();
 }
 
@@ -477,8 +502,11 @@ void CUVTransform::tmod_Draw (ILxUnknownID vts, ILxUnknownID stroke, int flags)
 	CLxUser_StrokeDraw	 draw (stroke);
 	LXpToolViewEvent	*view = (LXpToolViewEvent *) vec.Read (offset_view);
 
-    m_space.DrawPolygon(draw, view);
-    m_space.DrawPolygonUV(draw, view);
+    if (view->type == LXi_VIEWTYPE_3D)
+        m_space.DrawPolygon3D(draw, view);
+    else
+        m_space.DrawPolygonUV(draw, view);
+
     DrawHandles(vts, stroke, flags);
 }
 

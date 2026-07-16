@@ -37,7 +37,7 @@ public:
         m_vmap.Select(vmapID);
     }
     bool SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, const LXtHitElement* hit);
-    void DrawPolygon(CLxUser_StrokeDraw& draw, const LXpToolViewEvent* view);
+    void DrawPolygon3D(CLxUser_StrokeDraw& draw, const LXpToolViewEvent* view);
     void DrawPolygonUV(CLxUser_StrokeDraw& draw, const LXpToolViewEvent* view);
     CLxVector ProjectPointToUV (CLxVector& pos);
 

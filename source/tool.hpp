@@ -46,6 +46,7 @@ const char* SRVNAME_TOOL = "tool.uvTransform";
 #define ATTRs_SCALE_V   "scaleV"
 #define ATTRs_CENTER_U  "centerU"
 #define ATTRs_CENTER_V  "centerV"
+#define ATTRs_POLYGON   "polygon"
 
 #define ATTRa_TRANS_U   0
 #define ATTRa_TRANS_V   1
@@ -54,6 +55,7 @@ const char* SRVNAME_TOOL = "tool.uvTransform";
 #define ATTRa_SCALE_V   4
 #define ATTRa_CENTER_U  5
 #define ATTRa_CENTER_V  6
+#define ATTRa_POLYGON   7
 
 #define HANDLE_CENTER   0x1000
 #define HANDLE_TRANS_U  0x2000
@@ -61,6 +63,7 @@ const char* SRVNAME_TOOL = "tool.uvTransform";
 #define HANDLE_SCALE_U  0x3000
 #define HANDLE_SCALE_V  0x3001
 #define HANDLE_ROTATE   0x4000
+#define HANDLE_PLANE    0x5000
 
 #define IQ_CONSTRAIN		0x08
 
@@ -109,6 +112,7 @@ public:
     CLxUser_SelectionService s_sel;
     CLxUser_MeshService mesh_svc;
     CLxUser_View3DportService s_v3d;
+	CLxUser_ValueService	 s_val;
 
     unsigned offset_view;
     unsigned offset_screen;
@@ -122,6 +126,7 @@ public:
     unsigned mode_select;
 	
 	LXtItemType m_itemType;
+	CLxUser_Value val_poly;
 
     double  m_angle0;
     double  m_sAngle, m_eAngle, m_offset;
