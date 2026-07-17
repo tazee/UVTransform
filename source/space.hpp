@@ -14,6 +14,7 @@
 #include <lxsdk/lxu_math.hpp>
 #include <lxsdk/lxu_matrix.hpp>
 #include <lxsdk/lxu_vector.hpp>
+#include <lxsdk/lxu_format.hpp>
 #include <lxsdk/lx_draw.hpp>
 #include <lxsdk/lxvalue.h>
 

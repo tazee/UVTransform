@@ -9,6 +9,7 @@
 #include <lxsdk/lxu_attributes.hpp>
 #include <lxsdk/lxu_vector.hpp>
 #include <lxsdk/lxu_math.hpp>
+#include <lxsdk/lxu_format.hpp>
 
 #include <lxsdk/lx_layer.hpp>
 #include <lxsdk/lx_mesh.hpp>
@@ -46,7 +47,7 @@ const char* SRVNAME_TOOL = "tool.uvTransform";
 #define ATTRs_SCALE_V   "scaleV"
 #define ATTRs_CENTER_U  "centerU"
 #define ATTRs_CENTER_V  "centerV"
-#define ATTRs_POLYGON   "polygon"
+#define ATTRs_TWEAK     "tweak"
 
 #define ATTRa_TRANS_U   0
 #define ATTRa_TRANS_V   1
@@ -55,7 +56,7 @@ const char* SRVNAME_TOOL = "tool.uvTransform";
 #define ATTRa_SCALE_V   4
 #define ATTRa_CENTER_U  5
 #define ATTRa_CENTER_V  6
-#define ATTRa_POLYGON   7
+#define ATTRa_TWEAK     7
 
 #define HANDLE_CENTER   0x1000
 #define HANDLE_TRANS_U  0x2000
@@ -105,6 +106,7 @@ public:
     void ScaleHandle(ILxUnknownID stroke, const LXtVector pos, const LXtMatrix m, int axis, int part, double offset, int flags, int type);
     LxResult HitPolygon(CLxUser_VectorStack& vec);
     bool UVMapSetup(CLxUser_MeshMap& vmap);
+    LxResult HitTweakPolygon(CLxUser_VectorStack& vec);
 
     CLxUser_LogService   s_log;
     CLxUser_LayerService s_layer;
@@ -136,5 +138,11 @@ public:
     CRotationHandle m_rotHandle;
     CSpaceTransform m_space;
     int m_part;
+
+    // Tweak mode
+    int m_tweak;
+    CLxUser_Point m_point;
+    CLxUser_Polygon m_polygon;
+    CLxUser_Edge m_edge;
 };
 

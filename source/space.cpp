@@ -29,7 +29,21 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, co
         m_edge.PolygonByIndex(0, &polyID);
     }
     else if (hit->type == LXiSEL_POLYGON)
+    {
         polyID = hit->pol;
+    }
+    else if (hit->type == lx::StringID4("DISC"))
+    {
+        polyID = hit->pol;
+        if (hit->vrt)
+            m_point.Select(hit->vrt);
+    }
+    else if (hit->type == lx::StringID4("DSED"))
+    {
+        polyID = hit->pol;
+        if (hit->edge)
+            m_edge.Select(hit->edge);
+    }
 
     if (!polyID)
         return false;

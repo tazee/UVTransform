@@ -24,7 +24,7 @@ CUVTransform::CUVTransform()
     dyna_Add(ATTRs_SCALE_V, LXsTYPE_PERCENT);
     dyna_Add(ATTRs_CENTER_U, LXsTYPE_UVCOORD);
     dyna_Add(ATTRs_CENTER_V, LXsTYPE_UVCOORD);
-    dyna_Add(ATTRs_POLYGON, "&poly");
+    dyna_Add(ATTRs_TWEAK, LXsTYPE_BOOLEAN);
 
     tool_Reset();
 
@@ -48,6 +48,8 @@ CUVTransform::CUVTransform()
 	offset_raycast = sPkt.GetOffset(LXsCATEGORY_TOOL, LXsP_TOOL_RAYCAST);
     mode_select = sMesh.SetMode("select");
 
+	s_val.NewValue (val_poly, "&poly");
+
     LXx_VUNIT(m_axis, 2);
     LXx_VCLR(m_trans0);
     LXx_VCLR(m_center0);
@@ -66,6 +68,7 @@ void CUVTransform::tool_Reset()
     dyna_Value(ATTRa_SCALE_V).SetFlt(1.0);
     dyna_Value(ATTRa_CENTER_U).SetFlt(0.5);
     dyna_Value(ATTRa_CENTER_V).SetFlt(0.5);
+    dyna_Value(ATTRa_TWEAK).SetInt(0);
 }
 
 /*
@@ -144,7 +147,8 @@ LxResult CUVTransform::HitPolygon(CLxUser_VectorStack& vec)
 	LXtHitElement hit;
     if (rayPkt.HitClosest(vec, LXf_LAYER_ACTIVE, spak->fcx, spak->fcy, &hit))
     {
-        printf("[HIT] poly %p wPos %f %f %f isUV (%d)\n", hit.pol, hit.wPos[0], hit.wPos[1], hit.wPos[2], hit.isUV);
+        std::string id4 = lx::ID4String(hit.type);
+        printf("[HIT] id4 %s poly %p wPos %f %f %f isUV (%d)\n", id4.c_str(), hit.pol, hit.wPos[0], hit.wPos[1], hit.wPos[2], hit.isUV);
 	    CLxUser_Mesh mesh;
         CLxUser_Item item;
 
@@ -160,20 +164,36 @@ LxResult CUVTransform::HitPolygon(CLxUser_VectorStack& vec)
         if (!UVMapSetup(m_space.m_vmap))
             return LXe_FALSE;
         m_space.SetPolygon(mesh, xfrm, &hit);
+        return LXe_TRUE;
+    }
+    return LXe_FALSE;
+}
 
-        LXtObjectID			 obj;
-        CLxUser_ValueReference		 ref;
-		CLxUser_Value		 val;
-        attr_Value (ATTRa_POLYGON, &obj, 1);
-        printf("** polygon %p obj %p\n", m_space.m_polygon.ID(), obj);
-		ref.set (obj);
-        //ref.take (obj);
-        ref.SetObject(m_space.m_polygon);
+LxResult CUVTransform::HitTweakPolygon(CLxUser_VectorStack& vec)
+{
+    LXpToolScreenEvent*  spak = static_cast<LXpToolScreenEvent*>(vec.Read(offset_screen));
+    CLxUser_RaycastPacket rayPkt;
+	vec.ReadObject(offset_raycast, rayPkt);
 
-        CLxUser_Polygon polygon;
-        polygon.fromMesh(mesh);
-        ref.GetObject(polygon);
-        printf("== polygon %p\n", polygon.ID());
+    m_polygon.clear();
+    m_edge.clear();
+    m_point.clear();
+
+	LXtHitElement hit;
+    if (rayPkt.HitClosest(vec, LXf_LAYER_ACTIVE, spak->fcx, spak->fcy, &hit))
+    {
+        std::string id4 = lx::ID4String(hit.type);
+        printf("[TWEAK] id4 %s poly %p wPos %f %f %f isUV (%d)\n", id4.c_str(), hit.pol, hit.wPos[0], hit.wPos[1], hit.wPos[2], hit.isUV);
+	    CLxUser_Mesh mesh;
+        CLxUser_Item item;
+
+        mesh.set(hit.mesh);
+        item.set(hit.item);
+        if (hit.pol)
+        {
+            m_polygon.fromMesh(mesh);
+            m_polygon.Select(hit.pol);
+        }
         return LXe_TRUE;
     }
     return LXe_FALSE;
@@ -285,6 +305,11 @@ LxResult CUVTransform::tmod_Down(ILxUnknownID vts, ILxUnknownID adjust)
             //epkt.SetPlanarConstraint(vts, m_mousePos, dir);
             break;
         default:
+            dyna_Value(ATTRa_TWEAK).GetInt(&m_tweak);
+            if (m_tweak)
+            {
+                HitTweakPolygon(vec);
+            }
             dyna_Value(ATTRa_TRANS_U).GetFlt(&m_trans0[0]);
             dyna_Value(ATTRa_TRANS_V).GetFlt(&m_trans0[1]);
             dyna_Value(ATTRa_CENTER_U).GetFlt(&m_center0[0]);
@@ -596,17 +621,39 @@ class PolygonVisitor : public CLxImpl_AbstractVisitor
 public:
     LxResult Evaluate()
     {
+        if (m_tweak && (m_tweak_polyID != nullptr))
+        {
+            if (m_poly.ID() != m_tweak_polyID)
+                return LXe_OK;
+        }
         unsigned int nvert;
+        int index;
         m_poly.VertexCount(&nvert);
-        //printf("polygon ID %p nvert %u\n", m_poly.ID(), nvert);
+        m_poly.Index(&index);
+        printf("polygon (%d) nvert %u tweak (%d)\n", index, nvert, m_tweak);
         for (auto i = 0u; i < nvert; i++)
         {
             LXtPointID vertID;
             m_poly.VertexByIndex(i, &vertID);
             m_vert.Select(vertID);
+            unsigned index;
+            m_vert.Index(&index);
             if (m_vert.TestMarks(m_mark_pick) == LXe_FALSE)
                 continue;
-            float value[2];
+            if (m_tweak && (m_tweak_vertID != nullptr))
+            {
+                if (m_vert.ID() != m_tweak_vertID)
+                    continue;
+            }
+            if (m_tweak && (m_tweak_edgeID != nullptr))
+            {
+                LXtPointID nextID;
+                m_poly.VertexByIndex((i + 1) % nvert, &nextID);
+                m_edge.SelectEndpoints(vertID, nextID);
+                if (m_edge.ID() != m_tweak_edgeID)
+                    continue;
+            }
+            float value[2], new_value[2];
             if (m_poly.MapValue(m_vmap.ID(), vertID, value) == LXe_OK)
             {
                 if (m_vert.TestMarks(m_mark_pick) == LXe_TRUE)
@@ -615,9 +662,11 @@ public:
                     double v = (value[1] - m_center[1]) * m_scale[1];
                     double x = u * m_cost - v * m_sint + m_center[0] + m_trans[0];
                     double y = v * m_cost + u * m_sint + m_center[1] + m_trans[1];
-                    value[0] = static_cast<float>(x);
-                    value[1] = static_cast<float>(y);
-                    m_poly.SetMapValue(vertID, m_vmap.ID(), value);
+                    new_value[0] = static_cast<float>(x);
+                    new_value[1] = static_cast<float>(y);
+                    m_poly.SetMapValue(vertID, m_vmap.ID(), new_value);
+                    printf("[%u] disco vert %u\n", i, index);
+                    TransformConnected(value, new_value);
                 }
             }
             else if (m_vert.TestMarks(m_mark_done) == LXe_FALSE)
@@ -628,23 +677,62 @@ public:
                     double v = (value[1] - m_center[1]) * m_scale[1];
                     double x = u * m_cost - v * m_sint + m_center[0] + m_trans[0];
                     double y = v * m_cost + u * m_sint + m_center[1] + m_trans[1];
-                    value[0] = static_cast<float>(x);
-                    value[1] = static_cast<float>(y);
-                    m_vert.SetMapValue(m_vmap.ID(), value);
+                    new_value[0] = static_cast<float>(x);
+                    new_value[1] = static_cast<float>(y);
+                    m_vert.SetMapValue(m_vmap.ID(), new_value);
+                    printf("[%u] cont vert %u\n", i, index);
+                    TransformConnected(value, new_value);
                 }
                 m_vert.SetMarks(m_mark_done);
             }
         }
         return LXe_OK;
     }
+
+    void TransformConnected(float* base, float* new_value)
+    {
+        unsigned npoly;
+        m_vert.PolygonCount(&npoly);
+        CLxUser_Polygon upoly;
+        upoly.fromMesh(m_mesh);
+        for (auto j = 0u; j < npoly; j++)
+        {
+            LXtPolygonID polyID;
+            m_vert.PolygonByIndex(j, &polyID);
+            if (polyID == m_poly.ID())
+                continue;
+            upoly.Select(polyID);
+            if (upoly.TestMarks(m_mark_pick) == LXe_TRUE)
+                continue;
+            float value1[2];
+            if (upoly.MapEvaluate(m_vmap.ID(), m_vert.ID(), base) == LXe_OK)
+            {
+                if ((lx::Compare(value1[0], base[0]) == LXi_EQUAL_TO)
+                    &&(lx::Compare(value1[1], base[1]) == LXi_EQUAL_TO))
+                {
+                    upoly.SetMapValue(m_vert.ID(), m_vmap.ID(), new_value);
+                    int index;
+                    upoly.Index(&index);
+                    printf("[%u] connected poly %d\n", j, index);
+                }
+            }
+        }
+    }
+
     CLxUser_Mesh    m_mesh;
     CLxUser_Polygon m_poly;
     CLxUser_Point   m_vert;
+    CLxUser_Edge    m_edge;
     CLxUser_MeshMap m_vmap;
     LXtMarkMode     m_mark_pick;
     LXtMarkMode     m_mark_done;
     double          m_trans[2], m_scale[2], m_angle, m_center[2];
     double          m_sint, m_cost;
+    bool            m_tweak;
+    bool            m_tearOff;
+    LXtPolygonID    m_tweak_polyID;
+    LXtEdgeID       m_tweak_edgeID;
+    LXtPointID      m_tweak_vertID;
 };
 
 bool CUVTransform::GetCurrentUVMap(std::string& uvName)
@@ -697,10 +785,22 @@ void CUVTransform::tool_Evaluate(ILxUnknownID vts)
     dyna_Value(ATTRa_SCALE_V).GetFlt(&vis.m_scale[1]);
     dyna_Value(ATTRa_CENTER_U).GetFlt(&vis.m_center[0]);
     dyna_Value(ATTRa_CENTER_V).GetFlt(&vis.m_center[1]);
+    dyna_Value(ATTRa_TWEAK).GetInt(&m_tweak);
     vis.m_cost = std::cos(vis.m_angle);
     vis.m_sint = std::sin(vis.m_angle);
     vis.m_center[0] -= vis.m_trans[0];
     vis.m_center[1] -= vis.m_trans[1];
+    vis.m_tweak = m_tweak;
+    vis.m_tearOff = false;
+    vis.m_tweak_polyID = m_polygon.test() ? m_polygon.ID() : nullptr;
+    vis.m_tweak_edgeID = m_edge.test() ? m_edge.ID() : nullptr;
+    vis.m_tweak_vertID = m_point.test() ? m_point.ID() : nullptr;
+
+    if (m_tweak)
+    {
+        if (!m_polygon.test() && !m_edge.test() && !m_point.test())
+            return;
+    }
 
     CLxUser_LayerScan  scan;
     subject.BeginScan(LXf_LAYERSCAN_EDIT_POLVRT, scan);
@@ -720,6 +820,7 @@ void CUVTransform::tool_Evaluate(ILxUnknownID vts)
         vis.m_vmap.SelectByName(LXi_VMAP_TEXTUREUV, name.c_str());
         vis.m_poly.fromMesh(edit);
         vis.m_vert.fromMesh(edit);
+        vis.m_edge.fromMesh(edit);
         vis.m_mark_done = mesh_svc.SetMode(LXsMARK_USER_0);
         vis.m_mark_pick = mesh_svc.SetMode(LXsMARK_SELECT);
         if (subject.Type() == LXiSEL_POLYGON)
