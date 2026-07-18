@@ -12,7 +12,7 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, co
     m_mesh = mesh;
     m_matrix = CLxMatrix4(matrix);
 
-    lx::Matrix4Ident(m_3d_uv_matrix);
+    //lx::Matrix4Ident(m_3d_uv_matrix);
     m_point.fromMesh(mesh);
     m_polygon.fromMesh(mesh);
     m_edge.fromMesh(mesh);
@@ -78,7 +78,7 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, co
         m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
         m_boxUV.add(posUV);
         positionsUV[i] = CLxVector(posUV);
-        printf("[%u] posUV %f %f %f\n", i, posUV[0], posUV[1], posUV[2]);
+        //printf("[%u] posUV %f %f %f\n", i, posUV[0], posUV[1], posUV[2]);
     }
     LXtVector vec;
     m_polygon.Normal(vec);
@@ -86,6 +86,9 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, co
 
     CLxVector v1 = positions3D[1] - positions3D[0];
     CLxVector v2 = positions3D.back() - positions3D[0];
+    CLxVector u1(positionsUV[1] - positionsUV[0]);
+    CLxVector u2(positionsUV.back() - positionsUV[0]);
+/**
     CLxMatrix4 p_basis(
         v1[0], v2[0], normal[0], 0.0,
         v1[1], v2[1], normal[1], 0.0,
@@ -93,8 +96,6 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, co
         0.0, 0.0, 0.0, 1.0
     );
 
-    CLxVector u1(positionsUV[1] - positionsUV[0]);
-    CLxVector u2(positionsUV.back() - positionsUV[0]);
     CLxMatrix4 u_basis(
         u1[0], u2[0], 0.0, 0.0,
         u1[1], u2[1], 0.0, 0.0,
@@ -107,6 +108,7 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, co
     CLxMatrix4 trans = p_basis * u_basis.inverse();
     CLxVector offset = origUV - trans * orig3D;
     m_3d_uv_matrix = CLxMatrix4(trans, offset);
+ **/
 
     CLxVector v(positions3D[0]);
     v1.normalize();
@@ -126,7 +128,6 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, co
     if (ix == 1)
     {
         std::swap(v1, v2);
-        //v3 = v1.cross(v2);
         printf("*** SWAP AXES ***\n");
     }
     LXtMatrix m;
@@ -145,6 +146,7 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, co
 
     m_3d_uv_scale = p1.length() / u1.length();
     m_uv_3d_rotate = MathUtil::MatrixVectorRotation(u1, p1);
+/*
     printf("plane0     %f %f %f\n",plane0[0], plane0[1], plane0[2]);
     printf("plane1     %f %f %f\n",plane1[0], plane1[1], plane1[2]);
     printf("plane2     %f %f %f\n",plane2[0], plane2[1], plane2[2]);
@@ -157,7 +159,7 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, co
     printf("v1 %f %f %f\n", v1[0], v1[1], v1[2]);
     printf("v2 %f %f %f\n", v2[0], v2[1], v2[2]);
     printf("v3 %f %f %f\n", v3[0], v3[1], v3[2]);
-
+*/
     return true;
 }
 

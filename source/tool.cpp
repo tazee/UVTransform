@@ -189,9 +189,34 @@ LxResult CUVTransform::HitTweakPolygon(CLxUser_VectorStack& vec)
 
         mesh.set(hit.mesh);
         item.set(hit.item);
-        if (hit.pol)
+
+        if (hit.type == LXiSEL_VERTEX)
+        {
+            m_point.fromMesh(mesh);
+            m_point.Select(hit.vrt);
+        }
+        else if (hit.type == LXiSEL_EDGE)
+        {
+            m_edge.fromMesh(mesh);
+            m_edge.Select(hit.edge);
+        }
+        else if (hit.type == LXiSEL_POLYGON)
         {
             m_polygon.fromMesh(mesh);
+            m_polygon.Select(hit.pol);
+        }
+        else if (hit.type == lx::StringID4("DISC"))
+        {
+            m_point.fromMesh(mesh);
+            m_polygon.fromMesh(mesh);
+            m_point.Select(hit.vrt);
+            m_polygon.Select(hit.pol);
+        }
+        else if (hit.type == lx::StringID4("DSED"))
+        {
+            m_edge.fromMesh(mesh);
+            m_polygon.fromMesh(mesh);
+            m_edge.Select(hit.edge);
             m_polygon.Select(hit.pol);
         }
         return LXe_TRUE;
@@ -237,7 +262,6 @@ LxResult CUVTransform::tmod_Down(ILxUnknownID vts, ILxUnknownID adjust)
         case HANDLE_TRANS_U:
             dyna_Value(ATTRa_TRANS_U).GetFlt(&m_trans0[0]);
             dyna_Value(ATTRa_CENTER_U).GetFlt(&m_center0[0]);
-            printf("TRANS_U %f %f %f\n", m_space.m_view_matrix[0][0], m_space.m_view_matrix[0][1], m_space.m_view_matrix[0][2]);
             if (view->type == LXi_VIEWTYPE_3D)
                 LXx_VSET3(dir, m_space.m_view_matrix[0][0], m_space.m_view_matrix[0][1], m_space.m_view_matrix[0][2]);
             else
@@ -247,7 +271,6 @@ LxResult CUVTransform::tmod_Down(ILxUnknownID vts, ILxUnknownID adjust)
         case HANDLE_TRANS_V:
             dyna_Value(ATTRa_TRANS_V).GetFlt(&m_trans0[1]);
             dyna_Value(ATTRa_CENTER_V).GetFlt(&m_center0[1]);
-            printf("TRANS_V %f %f %f\n", m_space.m_view_matrix[1][0], m_space.m_view_matrix[1][1], m_space.m_view_matrix[1][2]);
             if (view->type == LXi_VIEWTYPE_3D)
                 LXx_VSET3(dir, m_space.m_view_matrix[1][0], m_space.m_view_matrix[1][1], m_space.m_view_matrix[1][2]);
             else
@@ -261,7 +284,6 @@ LxResult CUVTransform::tmod_Down(ILxUnknownID vts, ILxUnknownID adjust)
             else
                 LXx_VUNIT(dir, 0);
             epkt.SetLinearConstraint(vts, m_mousePos, dir);
-            //printf("[DOWN] scale_u %f\n", m_scale0[0]);
             break;
         case HANDLE_SCALE_V:
             dyna_Value(ATTRa_SCALE_V).GetFlt(&m_scale0[1]);
@@ -270,7 +292,6 @@ LxResult CUVTransform::tmod_Down(ILxUnknownID vts, ILxUnknownID adjust)
                 LXx_VSET3(dir, m_space.m_view_matrix[1][0], m_space.m_view_matrix[1][1], m_space.m_view_matrix[1][2]);
             else
                 LXx_VUNIT(dir, 1);
-            //printf("[DOWN] scale_v %f\n", m_scale0[1]);
             break;
         case HANDLE_CENTER:
         case HANDLE_PLANE:
@@ -630,7 +651,7 @@ public:
         int index;
         m_poly.VertexCount(&nvert);
         m_poly.Index(&index);
-        printf("polygon (%d) nvert %u tweak (%d)\n", index, nvert, m_tweak);
+        //printf("polygon (%d) nvert %u tweak (%d)\n", index, nvert, m_tweak);
         for (auto i = 0u; i < nvert; i++)
         {
             LXtPointID vertID;
@@ -647,10 +668,10 @@ public:
             }
             if (m_tweak && (m_tweak_edgeID != nullptr))
             {
-                LXtPointID nextID;
-                m_poly.VertexByIndex((i + 1) % nvert, &nextID);
-                m_edge.SelectEndpoints(vertID, nextID);
-                if (m_edge.ID() != m_tweak_edgeID)
+                LXtPointID v0, v1;
+                m_edge.Select(m_tweak_edgeID);
+                m_edge.Endpoints(&v0, &v1);
+                if ((vertID != v0) && (vertID != v1))
                     continue;
             }
             float value[2], new_value[2];
@@ -665,7 +686,7 @@ public:
                     new_value[0] = static_cast<float>(x);
                     new_value[1] = static_cast<float>(y);
                     m_poly.SetMapValue(vertID, m_vmap.ID(), new_value);
-                    printf("[%u] disco vert %u\n", i, index);
+                    //printf("[%u] disco vert %u\n", i, index);
                     TransformConnected(value, new_value);
                 }
             }
@@ -680,7 +701,7 @@ public:
                     new_value[0] = static_cast<float>(x);
                     new_value[1] = static_cast<float>(y);
                     m_vert.SetMapValue(m_vmap.ID(), new_value);
-                    printf("[%u] cont vert %u\n", i, index);
+                    //printf("[%u] cont vert %u\n", i, index);
                     TransformConnected(value, new_value);
                 }
                 m_vert.SetMarks(m_mark_done);
@@ -702,18 +723,21 @@ public:
             if (polyID == m_poly.ID())
                 continue;
             upoly.Select(polyID);
-            if (upoly.TestMarks(m_mark_pick) == LXe_TRUE)
-                continue;
+            if (m_tweak == false)
+            {
+                if (upoly.TestMarks(m_mark_pick) == LXe_TRUE)
+                    continue;
+            }
             float value1[2];
-            if (upoly.MapEvaluate(m_vmap.ID(), m_vert.ID(), base) == LXe_OK)
+            int index;
+            upoly.Index(&index);
+            if (upoly.MapEvaluate(m_vmap.ID(), m_vert.ID(), value1) == LXe_OK)
             {
                 if ((lx::Compare(value1[0], base[0]) == LXi_EQUAL_TO)
                     &&(lx::Compare(value1[1], base[1]) == LXi_EQUAL_TO))
                 {
                     upoly.SetMapValue(m_vert.ID(), m_vmap.ID(), new_value);
-                    int index;
-                    upoly.Index(&index);
-                    printf("[%u] connected poly %d\n", j, index);
+                    //printf("[%u] connected poly %d\n", j, index);
                 }
             }
         }
@@ -798,6 +822,7 @@ void CUVTransform::tool_Evaluate(ILxUnknownID vts)
 
     if (m_tweak)
     {
+        printf("tweak poly (%d) edge (%d) vert (%d)\n", m_polygon.test(), m_edge.test(), m_point.test());
         if (!m_polygon.test() && !m_edge.test() && !m_point.test())
             return;
     }
@@ -827,7 +852,7 @@ void CUVTransform::tool_Evaluate(ILxUnknownID vts)
             vis.m_poly.Enum(&vis, vis.m_mark_pick);
         else
             vis.m_poly.Enum(&vis, LXiMARK_ANY);
-        scan.SetMeshChange(i, LXf_MESHEDIT_MAP_UV);
+        //scan.SetMeshChange(i, LXf_MESHEDIT_MAP_UV);
         scan.SetMeshChange(i, LXf_MESHEDIT_GEOMETRY);
     }
 

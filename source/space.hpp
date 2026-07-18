@@ -53,8 +53,8 @@ public:
     CLxUser_Scene m_scene;
 
     CLxMatrix4 m_matrix;
-    CLxMatrix4 m_3d_uv_matrix;
-    CLxMatrix4 m_uv_3d_matrix;
+    //CLxMatrix4 m_3d_uv_matrix;
+    //CLxMatrix4 m_uv_3d_matrix;
 
     CLxBoundingBox m_box3D;
     CLxBoundingBox m_boxUV;
