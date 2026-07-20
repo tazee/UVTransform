@@ -318,6 +318,66 @@ namespace MathUtil {
         MatrixVectorRotation(m, v0.v, v1.v, frac);
         return CLxMatrix4(m);
     }
+
+    static bool PointInTriangle (CLxVector& pos, CLxVector& v0, CLxVector& v1, CLxVector& v2, double& u, double& v)
+    {
+        CLxVector edge0 = v1 - v0;
+        CLxVector edge1 = v2 - v0;
+        CLxVector vp = pos - v0;
+
+        double d00 = edge0.dot(edge0);
+        double d01 = edge0.dot(edge1);
+        double d11 = edge1.dot(edge1);
+        double d20 = vp.dot(edge0);
+        double d21 = vp.dot(edge1);
+        
+        double denom = d00 * d11 - d01 * d01;
+        
+        // 逆行列を計算してu, vを求める
+        u = (d11 * d20 - d01 * d21) / denom;
+        v = (d00 * d21 - d01 * d20) / denom;
+
+        // 三角形内の判定
+        return (u >= 0.0) && (v >= 0.0) && (u + v <= 1.0);
+
+/*
+        CLxVector edge1 = vert1 - vert0;
+        CLxVector edge2 = vert2 - vert0;
+    
+        CLxVector norm = edge1.cross(edge2);
+        int axis = MaxExtent (norm.v);
+
+        int k = 0;
+        CLxVector b, c, p;
+        for (auto i = 0; i < 3; i++)
+        {
+            if (i == axis)
+                continue;
+            b[k] = edge1[i];
+            c[k] = edge2[i];
+            p[k] = pos[i] - vert0[i];
+            k++;
+        }
+
+        u = (p[1] * c[0] - p[0] * c[1]) / (b[1] * c[0] - b[0] * c[1]);
+        v = (p[1] * b[0] - p[0] * b[1]) / (c[1] * b[0] - c[0] * b[1]);
+
+        if (u > 0.0 && v > 0.0 && (u + v) <= 1.0)
+            return true;
+        else
+            return false;
+*/
+    }
+
+    static CLxVector TrianglePoint(CLxVector& v0, CLxVector& v1, CLxVector& v2, double u, double v)
+    {
+        double w = 1.0 - u - v;
+        CLxVector pos = (v0 * w) + (v1 * u) + (v2 * v);
+/*
+        CLxVector pos = p0 * (1.0 - s) * (1.0 - t) + p1 * s + p2 * (1.0 - s) * t;
+*/
+        return pos;
+    }
 };
 
 

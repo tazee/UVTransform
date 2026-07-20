@@ -233,12 +233,11 @@ LxResult CUVTransform::tmod_Down(ILxUnknownID vts, ILxUnknownID adjust)
     LXpToolScreenEvent*  spak = static_cast<LXpToolScreenEvent*>(vec.Read(offset_screen));
 	LXpToolViewEvent*    view = static_cast<LXpToolViewEvent *>(vec.Read (offset_view));
 
-    if ((ipak->mode & IQ_CONSTRAIN) || (m_space.m_polygon.test() == false))
+    if (ipak->part == -1)
     {
         HitPolygon(vec);
-        at.SetFlt(ATTRa_CENTER_U, m_space.positionsUV[0].v[0]);
-        at.SetFlt(ATTRa_CENTER_V, m_space.positionsUV[0].v[1]);
-        return LXe_TRUE;
+        at.SetFlt(ATTRa_CENTER_U, m_space.m_centerUV.v[0]);
+        at.SetFlt(ATTRa_CENTER_V, m_space.m_centerUV.v[1]);
     }
 
     CLxUser_EventTranslatePacket epkt;
@@ -457,15 +456,20 @@ void CUVTransform::DrawHandles (ILxUnknownID vts, ILxUnknownID stroke, int flags
 
     if (view->type == LXi_VIEWTYPE_3D)
     {
-        m_space.m_view_matrix.getMatrix3x3(view_matrix);
-        CLxVector translation = m_space.m_view_matrix.getTranslation();
-        LXx_VCPY(view_pos, translation.v);
+        CLxUser_View view(stroke);
+        LXtVector ax, ay, az;
+        lx::MatrixIdent(view_matrix);
+        CLxVector center3D = m_space.PosUVto3D(centerX, centerY);
+        LXx_VCPY(view_pos, center3D.v);
+        view.ScreenNormals(view_pos, ax, ay, az);
+        LXx_VSET3(view_matrix[0], ax[0], ay[0], az[0]);
+        LXx_VSET3(view_matrix[1], ax[1], ay[1], az[1]);
+        LXx_VSET3(view_matrix[2], ax[2], ay[2], az[2]);
     }
     else
     {
         lx::MatrixIdent(view_matrix);
         LXx_VCLR(view_pos);
-        //LXx_VCPY(view_pos, m_space.positionsUV[0].v);
         LXx_VSET3(view_pos, centerX, centerY, 0.0);
     }
 	draw.PushTransform (view_pos, view_matrix);
