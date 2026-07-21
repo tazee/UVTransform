@@ -107,6 +107,7 @@ public:
     LxResult HitPolygon(CLxUser_VectorStack& vec);
     bool UVMapSetup(CLxUser_MeshMap& vmap);
     LxResult HitTweakPolygon(CLxUser_VectorStack& vec);
+    CLxMatrix4 GetRotateMatrix();
 
     CLxUser_LogService   s_log;
     CLxUser_LayerService s_layer;
@@ -134,13 +135,15 @@ public:
     double  m_sAngle, m_eAngle, m_offset;
     LXtVector m_trans0, m_scale0, m_center0;
     LXtVector m_mousePos, m_axis;
-    LXtMatrix m_xfrm;
+    //LXtMatrix m_xfrm;
+    CLxMatrix4 m_view_matrix;
+    CLxMatrix4 m_view_matrix_inv;
     CRotationHandle m_rotHandle;
     CSpaceTransform m_space;
     int m_part;
 
     // Tweak mode
-    int m_tweak;
+    //int m_tweak;
     CLxUser_Point m_point;
     CLxUser_Polygon m_polygon;
     CLxUser_Edge m_edge;

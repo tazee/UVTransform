@@ -10,7 +10,7 @@
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/UVTransform",
                 "CMAKE_C_COMPILER": "/usr/bin/clang",
                 "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
-                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_OSX_ARCHITECTURES": "x86_64;arm64"
             }
         }

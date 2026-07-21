@@ -40,7 +40,6 @@ public:
     bool SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, const LXtHitElement* hit);
     void DrawPolygon3D(CLxUser_StrokeDraw& draw, const LXpToolViewEvent* view);
     void DrawPolygonUV(CLxUser_StrokeDraw& draw, const LXpToolViewEvent* view);
-    CLxVector ProjectPointToUV (CLxVector& pos);
     CLxVector PosUVto3D (double u, double v);
     CLxVector Pos3DtoUV (const LXtVector pos3D);
 
@@ -61,17 +60,16 @@ public:
     CLxBoundingBox m_box3D;
     CLxBoundingBox m_boxUV;
 
-    LXtPointID m_vrt0, m_vrt1;
-    LXtPolyMeshInfo m_poly_info;
+    //LXtPointID m_vrt0, m_vrt1;
+    //LXtPolyMeshInfo m_poly_info;
 
-    CLxMatrix4 m_view_matrix;
-    CLxMatrix4 m_view_matrix_inv;
-    CLxMatrix4 m_uv_3d_rotate;
+    //CLxMatrix4 m_view_matrix;
+    //CLxMatrix4 m_view_matrix_inv;
+    //CLxMatrix4 m_uv_3d_rotate;
     double m_3d_uv_scale;
 
     // the reference triangle
-    // u = u0 * (1 - s) * (1 - t) + u1 * s + u2 * (1 - s) * t
-    // v = v0 * (1 - s) * (1 - t) + v1 * s + v2 * (1 - s) * t
+    // v = (v0 * (1-s-t)) + (v1 * s) + (v2 * t)
     unsigned int m_start_index;
     double m_s, m_t;
     CLxVector m_centerUV, m_center3D;

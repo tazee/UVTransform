@@ -339,43 +339,12 @@ namespace MathUtil {
 
         // 三角形内の判定
         return (u >= 0.0) && (v >= 0.0) && (u + v <= 1.0);
-
-/*
-        CLxVector edge1 = vert1 - vert0;
-        CLxVector edge2 = vert2 - vert0;
-    
-        CLxVector norm = edge1.cross(edge2);
-        int axis = MaxExtent (norm.v);
-
-        int k = 0;
-        CLxVector b, c, p;
-        for (auto i = 0; i < 3; i++)
-        {
-            if (i == axis)
-                continue;
-            b[k] = edge1[i];
-            c[k] = edge2[i];
-            p[k] = pos[i] - vert0[i];
-            k++;
-        }
-
-        u = (p[1] * c[0] - p[0] * c[1]) / (b[1] * c[0] - b[0] * c[1]);
-        v = (p[1] * b[0] - p[0] * b[1]) / (c[1] * b[0] - c[0] * b[1]);
-
-        if (u > 0.0 && v > 0.0 && (u + v) <= 1.0)
-            return true;
-        else
-            return false;
-*/
     }
 
     static CLxVector TrianglePoint(CLxVector& v0, CLxVector& v1, CLxVector& v2, double u, double v)
     {
         double w = 1.0 - u - v;
         CLxVector pos = (v0 * w) + (v1 * u) + (v2 * v);
-/*
-        CLxVector pos = p0 * (1.0 - s) * (1.0 - t) + p1 * s + p2 * (1.0 - s) * t;
-*/
         return pos;
     }
 };
