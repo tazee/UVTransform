@@ -106,7 +106,7 @@ public:
     void ScaleHandle(ILxUnknownID stroke, const LXtVector pos, const LXtMatrix m, int axis, int part, double offset, int flags, int type);
     LxResult HitPolygon(CLxUser_VectorStack& vec);
     bool UVMapSetup(CLxUser_MeshMap& vmap);
-    LxResult HitTweakPolygon(CLxUser_VectorStack& vec);
+    LxResult SetTweakElement(LXtHitElement& hit);
     CLxMatrix4 GetRotateMatrix();
 
     CLxUser_LogService   s_log;
@@ -135,7 +135,6 @@ public:
     double  m_sAngle, m_eAngle, m_offset;
     LXtVector m_trans0, m_scale0, m_center0;
     LXtVector m_mousePos, m_axis;
-    //LXtMatrix m_xfrm;
     CLxMatrix4 m_view_matrix;
     CLxMatrix4 m_view_matrix_inv;
     CRotationHandle m_rotHandle;
@@ -143,7 +142,6 @@ public:
     int m_part;
 
     // Tweak mode
-    //int m_tweak;
     CLxUser_Point m_point;
     CLxUser_Polygon m_polygon;
     CLxUser_Edge m_edge;

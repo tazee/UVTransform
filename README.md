@@ -2,7 +2,7 @@
 
 <b>UV Transform</b> is a tool for moving, rotating, and scaling UV values ​​in both the UV view and the 3D view. It allows you to modify the UV values ​​mapped to polygons selected in the 3D view, using a designated reference polygon as a basis. When the Tweak option is enabled, dragging an element (polygon, edge, or vertex) with the mouse cursor modifies the UV values ​​mapped to that element.
 
-The reference polygon is the polygon displayed in red in the 3D view; you can change it by clicking on a polygon while holding down the Control key and the Left Mouse Button (LMB).
+The reference polygon is the polygon displayed in magenda triangle in the 3D view; you can change it by clicking on a polygon by the Left Mouse Button (LMB).
 
 This kit contains a direct modeling tool for Modo macOS and Windows.
 

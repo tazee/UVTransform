@@ -37,11 +37,12 @@ public:
     {
         m_vmap.Select(vmapID);
     }
-    bool SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, const LXtHitElement* hit);
+    bool SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, LXtHitElement& hit);
     void DrawPolygon3D(CLxUser_StrokeDraw& draw, const LXpToolViewEvent* view);
     void DrawPolygonUV(CLxUser_StrokeDraw& draw, const LXpToolViewEvent* view);
     CLxVector PosUVto3D (double u, double v);
     CLxVector Pos3DtoUV (const LXtVector pos3D);
+    CLxVector TriangleNormal ();
 
     CLxUser_Mesh m_mesh;
     CLxUser_MeshMap m_vmap;
@@ -54,18 +55,10 @@ public:
     CLxUser_Scene m_scene;
 
     CLxMatrix4 m_matrix;
-    //CLxMatrix4 m_3d_uv_matrix;
-    //CLxMatrix4 m_uv_3d_matrix;
 
     CLxBoundingBox m_box3D;
     CLxBoundingBox m_boxUV;
 
-    //LXtPointID m_vrt0, m_vrt1;
-    //LXtPolyMeshInfo m_poly_info;
-
-    //CLxMatrix4 m_view_matrix;
-    //CLxMatrix4 m_view_matrix_inv;
-    //CLxMatrix4 m_uv_3d_rotate;
     double m_3d_uv_scale;
 
     // the reference triangle

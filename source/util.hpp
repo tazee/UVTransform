@@ -299,7 +299,6 @@ namespace MathUtil {
         axisX.normalize();
         axisY.normalize();
         normal.normalize();
-        printf("-- normal %f %f %f\n", normal[0], normal[1], normal[2]);
 
         // 2. ターゲット点からP0へのベクトル
         CLxVector vec = TargetPoint - P0;
@@ -347,6 +346,73 @@ namespace MathUtil {
         CLxVector pos = (v0 * w) + (v1 * u) + (v2 * v);
         return pos;
     }
+
+    static CLxVector ClosestTrianglePoint (CLxVector& pos, CLxVector& v0, CLxVector& v1, CLxVector& v2, double& u, double& v)
+    {
+        CLxVector ab = v1 - v0;
+        CLxVector ac = v2 - v0;
+        CLxVector ap = pos - v0;
+
+        double d1 = ab.dot(ap);
+        double d2 = ac.dot(ap);
+        if (d1 <= 0.0 && d2 <= 0.0) {
+            // 領域 1: v0 が最接近
+            u = 0.0;
+            v = 0.0;
+            return TrianglePoint(v0, v1, v2, u, v);
+        }
+
+        CLxVector bp = pos - v1;
+        double d3 = ab.dot(bp);
+        double d4 = ac.dot(bp);
+        if (d3 >= 0.0 && d4 <= d3) {
+            // 領域 2: v1 が最接近
+            u = 1.0;
+            v = 0.0;
+            return TrianglePoint(v0, v1, v2, u, v);
+        }
+
+        double vc = d1 * d4 - d3 * d2;
+        if (vc <= 0.0 && d1 >= 0.0 && d3 <= 0.0) {
+            // 領域 3: 辺 v0-v1 が最接近
+            u = d1 / (d1 - d3);
+            v = 0.0;
+            return TrianglePoint(v0, v1, v2, u, v);
+        }
+
+        CLxVector cp = pos - v2;
+        double d5 = ab.dot(cp);
+        double d6 = ac.dot(cp);
+        if (d6 >= 0.0 && d5 <= d6) {
+            // 領域 6: v2 が最接近
+            u = 0.0;
+            v = 1.0;
+            return TrianglePoint(v0, v1, v2, u, v);
+        }
+
+        double vb = d5 * d2 - d1 * d6;
+        if (vb <= 0.0 && d2 >= 0.0 && d6 <= 0.0) {
+            // 領域 4: 辺 v0-v2 が最接近
+            u = 0.0;
+            v = d2 / (d2 - d6);
+            return TrianglePoint(v0, v1, v2, u, v);
+        }
+
+        double va = d3 * d6 - d5 * d4;
+        if (va <= 0.0 && (d4 - d3) >= 0.0 && (d5 - d6) >= 0.0) {
+            // 領域 5: 辺 v1-v2 が最接近
+            double denom = 1.0 / ((d4 - d3) + (d5 - d6));
+            u = (d4 - d3) * denom;
+            v = (d5 - d6) * denom; // 辺上のパラメータ表現に合わせる
+            return TrianglePoint(v0, v1, v2, u, v);
+        }
+
+        // 領域 0: 内部 (Point is inside)
+        double denom = 1.0 / (va + vb + vc);
+        u = vb * denom;
+        v = vc * denom;
+        return TrianglePoint(v0, v1, v2, u, v);
+    }
 };
 
 
@@ -390,8 +456,6 @@ public:
     
 		LXx_VSUB3 (vec, m_move, m_center);
 		lx::VectorNormalize (vec);
-        printf("[MouseMove] m_move %f %f vec %f %f\n",
-            m_move[0], m_move[1], vec[0], vec[1]);
 
 		LXx_VSUB3 (delta, vec, m_prev);
 
