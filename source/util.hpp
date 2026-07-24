@@ -340,6 +340,62 @@ namespace MathUtil {
         return (u >= 0.0) && (v >= 0.0) && (u + v <= 1.0);
     }
 
+    static void ClosestBarycentricPoint(CLxVector& pos, CLxVector& v0, CLxVector& v1, CLxVector& v2, double& u, double& v) 
+    {
+        CLxVector ab = v1 - v0;
+        CLxVector ac = v2 - v0;
+        CLxVector ap = pos - v0;
+
+        double d1 = ab.dot(ap);
+        double d2 = ac.dot(ap);
+        if (d1 <= 0.0 && d2 <= 0.0) { 
+            u = 0.0; v = 0.0; 
+            return; 
+        }
+
+        CLxVector bp = pos - v1;
+        double d3 = ab.dot(bp);
+        double d4 = ac.dot(bp);
+        if (d3 >= 0.0 && d4 <= d3) { 
+            u = 1.0; v = 0.0; 
+            return;
+        }
+
+        double vc = d1 * d4 - d3 * d2;
+        if (vc <= 0.0 && d1 >= 0.0 && d3 <= 0.0) {
+            u = d1 / (d1 - d3);
+            v = 0.0;
+            return;
+        }
+
+        CLxVector cp = pos - v2;
+        double d5 = ab.dot(cp);
+        double d6 = ac.dot(cp);
+        if (d6 >= 0.0 && d5 <= d6) { 
+            u = 0.0; v = 1.0; 
+            return; 
+        }
+
+        double vb = d5 * d2 - d1 * d6;
+        if (vb <= 0.0 && d2 >= 0.0 && d6 <= 0.0) {
+            u = 0.0;
+            v = d2 / (d2 - d6);
+            return;
+        }
+
+        double va = d3 * d6 - d5 * d4;
+        if (va <= 0.0 && (d4 - d3) >= 0.0 && (d5 - d6) >= 0.0) {
+            double denom = 1.0 / ((d4 - d3) + (d5 - d6));
+            u = (d4 - d3) * denom;
+            v = (d5 - d6) * denom;
+            return;
+        }
+
+        double denom = 1.0 / (va + vb + vc);
+        u = vb * denom;
+        v = vc * denom;
+    }
+
     static CLxVector TrianglePoint(CLxVector& v0, CLxVector& v1, CLxVector& v2, double u, double v)
     {
         double w = 1.0 - u - v;
@@ -412,6 +468,55 @@ namespace MathUtil {
         u = vb * denom;
         v = vc * denom;
         return TrianglePoint(v0, v1, v2, u, v);
+    }
+
+    static bool IntersectSegmentTriangle (
+        CLxVector& p0, CLxVector& p1,
+        CLxVector& v0, CLxVector& v1, CLxVector& v2,
+        double& outU, double& outV, double& outT) 
+    {
+        const double EPSILON = 1e-7;
+        CLxVector edge1 = v1 - v0;
+        CLxVector edge2 = v2 - v0;
+
+        CLxVector rayOrigin = p0;
+        CLxVector rayVector = p1 - p0;
+        
+        CLxVector h = rayVector.cross(edge2);
+        double a = edge1.dot(h);
+
+        // a が 0 近傍の場合、線分は三角形と平行
+        if (std::abs(a) < EPSILON) {
+            return false;
+        }
+
+        double f = 1.0 / a;
+        CLxVector s = rayOrigin - v0;
+        outU = f * s.dot(h);
+
+        // u が範囲外（三角形の外側）
+        if (outU < 0.0 || outU > 1.0) {
+            return false;
+        }
+
+        CLxVector q = s.cross(edge1);
+        outV = f * rayVector.dot(q);
+
+        // v が範囲外、または u + v が 1 を超える場合（三角形の外側）
+        if (outV < 0.0 || outU + outV > 1.0) {
+            return false;
+        }
+
+        // 交点までの距離 t を計算
+        outT = f * edge2.dot(q);
+
+        // t が 0.0 から 1.0 の間にあれば「線分」上に交点がある
+        // （レイとして無限に伸ばす場合は t >= EPSILON のみで判定します）
+        if (outT >= 0.0 && outT <= 1.0) {
+            return true;
+        }
+
+        return false;
     }
 };
 

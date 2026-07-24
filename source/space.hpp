@@ -63,7 +63,8 @@ public:
 
     // the reference triangle
     // v = (v0 * (1-s-t)) + (v1 * s) + (v2 * t)
-    unsigned int m_start_index;
+    //unsigned int m_start_index;
+    std::array<unsigned int,3> m_index;
     double m_s, m_t;
     CLxVector m_centerUV, m_center3D;
 

@@ -63,6 +63,7 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, LX
         return false;
     }
 
+    std::unordered_map<LXtPointID,unsigned int> index_map;
     positions3D.resize(nvert);
     positionsUV.resize(nvert);
     for (unsigned int i = 0; i < nvert; i++)
@@ -76,28 +77,47 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, LX
         LXx_VCLR(posUV);
         m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
         positionsUV[i] = CLxVector(posUV);
+        index_map[vrtID] = i;
         //printf("[%u] posUV %f %f %f\n", i, posUV[0], posUV[1], posUV[2]);
     }
 
-    m_start_index = 0;
+
+    CLxUser_Point upnt;
+    upnt.fromMesh(mesh);
+    unsigned int count;
+    std::vector<std::array<unsigned int,3>> triangles;
+    std::array<unsigned int,3> index;
+    m_polygon.GenerateTriangles(&count);
+    for (auto i = 0; i < count; i++)
+    {
+        LXtPointID v[3];
+        m_polygon.TriangleByIndex(i, &v[0], &v[1], &v[2]);
+        for (auto j = 0u; j < 3; j++)
+        {
+            index[j] = index_map[v[j]];
+        }
+        triangles.push_back(index);
+    }
+
+    m_index = {0u, 1u, 2u};
     m_s = 0.0;
     m_t = 0.0;
     CLxVector hitPos(hit.lPos);
     m_centerUV = positionsUV[0];
     if (hit.isUV)
     {
-        for (auto i = 0u; i < positionsUV.size(); i++)
+        for (auto index : triangles)
         {
             LXtPointID vrtID;
             CLxVector pos[3];
             for (auto j = 0u; j < 3; j++)
             {
-                pos[j] = positionsUV[(i + j) % positionsUV.size()];
+                pos[j] = positionsUV[index[j]];
             }
             double s, t;
             if (MathUtil::PointInTriangle(hitPos, pos[0], pos[1], pos[2], s, t))
             {
-                m_start_index = i;
+                m_index = index;
                 m_s = s;
                 m_t = t;
                 m_centerUV = hitPos;
@@ -107,24 +127,28 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, LX
     }
     else
     {
-        for (auto i = 0u; i < positions3D.size(); i++)
+        for (auto index : triangles)
         {
             LXtPointID vrtID;
             CLxVector pos[3];
             for (auto j = 0u; j < 3; j++)
             {
-                pos[j] = positions3D[(i + j) % positions3D.size()];
+                pos[j] = positions3D[index[j]];
             }
             double s, t;
+            printf("-- triangle (%u, %u, %u)\n", index[0], index[1], index[2]);
+            printf(".  pos0 %f %f %f\n", pos[0][0], pos[0][1], pos[0][2]);
+            printf(".  pos1 %f %f %f\n", pos[1][0], pos[1][1], pos[1][2]);
+            printf(".  pos2 %f %f %f\n", pos[2][0], pos[2][1], pos[2][2]);
             if (MathUtil::PointInTriangle(hitPos, pos[0], pos[1], pos[2], s, t))
             {
-                m_start_index = i;
+                m_index = index;
                 m_s = s;
                 m_t = t;
-                printf("** hit triangle [%u] s = %f t = %f pos %f %f %f\n", i, s, t, hit.lPos[0], hit.lPos[1], hit.lPos[2]);
-                pos[0] = positionsUV[i];
-                pos[1] = positionsUV[(i + 1) % nvert];
-                pos[2] = positionsUV[(i + 2) % nvert];
+                printf("** hit triangle s = %f t = %f pos %f %f %f\n", s, t, hit.lPos[0], hit.lPos[1], hit.lPos[2]);
+                pos[0] = positionsUV[m_index[0]];
+                pos[1] = positionsUV[m_index[1]];
+                pos[2] = positionsUV[m_index[2]];
                 m_centerUV = MathUtil::TrianglePoint(pos[0], pos[1], pos[2], s, t);
                 printf("-- 3D %f %f %f UV %f %f\n", hitPos[0], hitPos[1], hitPos[2], m_centerUV[0], m_centerUV[1]);
                 break;
@@ -136,14 +160,14 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, LX
     m_boxUV.clear();
     for (auto i = 0; i < 3; i++)
     {
-        auto j = (i + m_start_index) % positions3D.size();
+        auto j = m_index[i];
         m_box3D.add(positions3D[j]);
         m_boxUV.add(positionsUV[j]);
     }
     auto extent3D = m_box3D.extent();
-    auto length3D = std::max(std::max(extent3D[0],extent3D[1]),extent3D[2]);
+    auto length3D = (std::max)((std::max)(extent3D[0],extent3D[1]),extent3D[2]);
     auto extentUV = m_boxUV.extent();
-    auto lengthUV = std::max(std::max(extentUV[0],extentUV[1]),extentUV[2]);
+    auto lengthUV = (std::max)((std::max)(extentUV[0],extentUV[1]),extentUV[2]);
     m_3d_uv_scale = (lengthUV > 0.0) ? (length3D / lengthUV) : 1.0;
     printf("** m_3d_uv_scale %f (%f / %f)\n", m_3d_uv_scale, length3D, lengthUV);
 
@@ -181,9 +205,9 @@ void CSpaceTransform::DrawPolygon3D(CLxUser_StrokeDraw& draw, const LXpToolViewE
 	draw.PushTransform (v, m);
 
     draw.BeginW (LXiSTROKE_LINE_LOOP, draw_rgb, 0.8, 3.0);
-    draw.Vertex (positions3D[m_start_index], LXiSTROKE_ABSOLUTE);
-    draw.Vertex (positions3D[(m_start_index + 1) % positions3D.size()], LXiSTROKE_ABSOLUTE);
-    draw.Vertex (positions3D[(m_start_index + 2) % positions3D.size()], LXiSTROKE_ABSOLUTE);
+    draw.Vertex (positions3D[m_index[0]], LXiSTROKE_ABSOLUTE);
+    draw.Vertex (positions3D[m_index[1]], LXiSTROKE_ABSOLUTE);
+    draw.Vertex (positions3D[m_index[2]], LXiSTROKE_ABSOLUTE);
 
 	draw.PopTransform ();
 }
@@ -214,12 +238,10 @@ void CSpaceTransform::DrawPolygonUV(CLxUser_StrokeDraw& draw, const LXpToolViewE
 
     draw.Begin (LXiSTROKE_LINE_LOOP, draw_rgb, 0.8);
 
-    unsigned int nvert;
-    m_polygon.VertexCount(&nvert);
-    for (unsigned int i = m_start_index; i < m_start_index + 3; i++)
+    for (auto i = 0u; i < 3; i++)
     {
         LXtPointID vrtID;
-        m_polygon.VertexByIndex(i % nvert, &vrtID);
+        m_polygon.VertexByIndex(m_index[i], &vrtID);
         LXtFVector posUV;
         m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
         CLxVector uv(posUV[0], posUV[1], 0.0);
@@ -232,18 +254,33 @@ void CSpaceTransform::DrawPolygonUV(CLxUser_StrokeDraw& draw, const LXpToolViewE
 CLxVector CSpaceTransform::PosUVto3D (double u, double v)
 {
     CLxVector hitPos(u, v, 0.0);
-    CLxVector pos0 = positionsUV[m_start_index];
-    CLxVector pos1 = positionsUV[(m_start_index + 1) % positionsUV.size()];
-    CLxVector pos2 = positionsUV[(m_start_index + 2) % positionsUV.size()];
+    CLxVector pos0 = positionsUV[m_index[0]];
+    CLxVector pos1 = positionsUV[m_index[1]];
+    CLxVector pos2 = positionsUV[m_index[2]];
     double s, t;
-    if (MathUtil::PointInTriangle(hitPos, pos0, pos1, pos2, s, t) == false)
+    CLxVector pos3D;
+    if (MathUtil::PointInTriangle(hitPos, pos0, pos1, pos2, s, t) == true)
     {
-        MathUtil::ClosestTrianglePoint(hitPos, pos0, pos1, pos2, s, t);
+        pos0 = positions3D[m_index[0]];
+        pos1 = positions3D[m_index[1]];
+        pos2 = positions3D[m_index[2]];
+        pos3D = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
     }
-    pos0 = positions3D[m_start_index];
-    pos1 = positions3D[(m_start_index + 1) % positions3D.size()];
-    pos2 = positions3D[(m_start_index + 2) % positions3D.size()];
-    CLxVector pos3D = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
+    else
+    {
+        double c = 1.0 / 3.0;
+        CLxVector cenUV = MathUtil::TrianglePoint(pos0, pos1, pos2, c, c);
+        double w;
+        MathUtil::IntersectSegmentTriangle(cenUV, hitPos, pos0, pos1, pos2, s, t, w);
+        CLxVector sideUV = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
+        double f = (hitPos - cenUV).length() / (sideUV - cenUV).length();
+        pos0 = positions3D[m_index[0]];
+        pos1 = positions3D[m_index[1]];
+        pos2 = positions3D[m_index[2]];
+        CLxVector cen3D = MathUtil::TrianglePoint(pos0, pos1, pos2, c, c);
+        CLxVector side3D = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
+        pos3D = (side3D - cen3D) * f + cen3D;
+    }
     return pos3D;
 }
 
@@ -251,27 +288,43 @@ CLxVector CSpaceTransform::PosUVto3D (double u, double v)
 CLxVector CSpaceTransform::Pos3DtoUV (const LXtVector pos3D)
 {
     CLxVector hitPos(pos3D);
-    CLxVector pos0 = positions3D[m_start_index];
-    CLxVector pos1 = positions3D[(m_start_index + 1) % positions3D.size()];
-    CLxVector pos2 = positions3D[(m_start_index + 2) % positions3D.size()];
+    CLxVector pos0 = positions3D[m_index[0]];
+    CLxVector pos1 = positions3D[m_index[1]];
+    CLxVector pos2 = positions3D[m_index[2]];
     double s, t;
-    if (MathUtil::PointInTriangle(hitPos, pos0, pos1, pos2, s, t) == false)
+    CLxVector posUV;
+    if (MathUtil::PointInTriangle(hitPos, pos0, pos1, pos2, s, t) == true)
     {
-        MathUtil::ClosestTrianglePoint(hitPos, pos0, pos1, pos2, s, t);
+        pos0 = positionsUV[m_index[0]];
+        pos1 = positionsUV[m_index[1]];
+        pos2 = positionsUV[m_index[2]];
+        posUV = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
     }
-    pos0 = positionsUV[m_start_index];
-    pos1 = positionsUV[(m_start_index + 1) % positionsUV.size()];
-    pos2 = positionsUV[(m_start_index + 2) % positionsUV.size()];
-    CLxVector posUV = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
+    else
+    {
+        double c = 1.0 / 3.0;
+        CLxVector cen3D = MathUtil::TrianglePoint(pos0, pos1, pos2, c, c);
+        double w;
+        MathUtil::IntersectSegmentTriangle(cen3D, hitPos, pos0, pos1, pos2, s, t, w);
+        CLxVector side3D = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
+        double f = (hitPos - cen3D).length() / (side3D - cen3D).length();
+        printf("3DtoUV f %f s %f t %f cen3D %f %f %f side3D %f %f %f\n", f, s, t, cen3D[0], cen3D[1], cen3D[2], side3D[0], side3D[1], side3D[2]);
+        pos0 = positionsUV[m_index[0]];
+        pos1 = positionsUV[m_index[1]];
+        pos2 = positionsUV[m_index[2]];
+        CLxVector cenUV = MathUtil::TrianglePoint(pos0, pos1, pos2, c, c);
+        CLxVector sideUV = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
+        posUV = (sideUV - cenUV) * f + cenUV;
+    }
     return posUV;
 }
 
 
 CLxVector CSpaceTransform::TriangleNormal ()
 {
-    CLxVector pos0 = positions3D[m_start_index];
-    CLxVector pos1 = positions3D[(m_start_index + 1) % positions3D.size()];
-    CLxVector pos2 = positions3D[(m_start_index + 2) % positions3D.size()];
+    CLxVector pos0 = positions3D[m_index[0]];
+    CLxVector pos1 = positions3D[m_index[1]];
+    CLxVector pos2 = positions3D[m_index[2]];
     CLxVector vec0 = pos1 - pos0;
     CLxVector vec1 = pos2 - pos0;
     CLxVector norm = vec0.cross(vec1);
