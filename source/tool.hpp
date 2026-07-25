@@ -48,6 +48,7 @@ const char* SRVNAME_TOOL = "tool.uvTransform";
 #define ATTRs_CENTER_U  "centerU"
 #define ATTRs_CENTER_V  "centerV"
 #define ATTRs_TWEAK     "tweak"
+#define ATTRs_UNIFORM   "uniform"
 
 #define ATTRa_TRANS_U   0
 #define ATTRa_TRANS_V   1
@@ -57,6 +58,7 @@ const char* SRVNAME_TOOL = "tool.uvTransform";
 #define ATTRa_CENTER_U  5
 #define ATTRa_CENTER_V  6
 #define ATTRa_TWEAK     7
+#define ATTRa_UNIFORM   8
 
 #define HANDLE_CENTER   0x1000
 #define HANDLE_TRANS_U  0x2000
@@ -116,6 +118,7 @@ public:
     CLxUser_MeshService mesh_svc;
     CLxUser_View3DportService s_v3d;
 	CLxUser_ValueService	 s_val;
+    CLxUser_View3D	        m_view3D;
 
     unsigned offset_view;
     unsigned offset_screen;
@@ -140,6 +143,7 @@ public:
     CRotationHandle m_rotHandle;
     CSpaceTransform m_space;
     int m_part;
+    int m_uniform;
 
     // Tweak mode
     CLxUser_Point m_point;

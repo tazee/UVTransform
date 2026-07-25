@@ -121,6 +121,10 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, LX
                 m_s = s;
                 m_t = t;
                 m_centerUV = hitPos;
+                pos[0] = positions3D[m_index[0]];
+                pos[1] = positions3D[m_index[1]];
+                pos[2] = positions3D[m_index[2]];
+                m_center3D = MathUtil::TrianglePoint(pos[0], pos[1], pos[2], s, t);
                 break;
             }
         }
@@ -142,6 +146,7 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, LX
             printf(".  pos2 %f %f %f\n", pos[2][0], pos[2][1], pos[2][2]);
             if (MathUtil::PointInTriangle(hitPos, pos[0], pos[1], pos[2], s, t))
             {
+                m_center3D = hitPos;
                 m_index = index;
                 m_s = s;
                 m_t = t;
@@ -268,7 +273,7 @@ CLxVector CSpaceTransform::PosUVto3D (double u, double v)
     }
     else
     {
-        double c = 1.0 / 3.0;
+        const double c = 1.0 / 3.0;
         CLxVector cenUV = MathUtil::TrianglePoint(pos0, pos1, pos2, c, c);
         double w;
         MathUtil::IntersectSegmentTriangle(cenUV, hitPos, pos0, pos1, pos2, s, t, w);
@@ -302,7 +307,7 @@ CLxVector CSpaceTransform::Pos3DtoUV (const LXtVector pos3D)
     }
     else
     {
-        double c = 1.0 / 3.0;
+        const double c = 1.0 / 3.0;
         CLxVector cen3D = MathUtil::TrianglePoint(pos0, pos1, pos2, c, c);
         double w;
         MathUtil::IntersectSegmentTriangle(cen3D, hitPos, pos0, pos1, pos2, s, t, w);
@@ -320,6 +325,29 @@ CLxVector CSpaceTransform::Pos3DtoUV (const LXtVector pos3D)
 }
 
 
+CLxVector CSpaceTransform::ProjectPos3D (const LXtVector pos3D, const LXtVector dir)
+{
+    if (positions3D.size() < 4)
+    {
+        return CLxVector(pos3D);
+    }
+    CLxVector rayOrigin(pos3D);
+    CLxVector rayVector(dir);
+    CLxVector pos0 = positions3D[m_index[0]];
+    CLxVector pos1 = positions3D[m_index[1]];
+    CLxVector pos2 = positions3D[m_index[2]];
+    CLxVector outPos;
+    double t;
+    if (MathUtil::intersectPlaneAndRay(pos0, pos1, pos2, rayOrigin, rayVector, outPos, t))
+    {
+        printf("proj (%f) %f %f %f pos3D %f %f %f\n", t, outPos[0], outPos[1], outPos[2], pos3D[0], pos3D[1], pos3D[2]);
+        return outPos;
+    }
+    else
+        return CLxVector(pos3D);
+}
+
+
 CLxVector CSpaceTransform::TriangleNormal ()
 {
     CLxVector pos0 = positions3D[m_index[0]];
@@ -330,4 +358,15 @@ CLxVector CSpaceTransform::TriangleNormal ()
     CLxVector norm = vec0.cross(vec1);
     norm.normalize();
     return norm;
+}
+
+
+CLxVector CSpaceTransform::TriangleCenter ()
+{
+    const double c = 1.0 / 3.0;
+    CLxVector pos0 = positions3D[m_index[0]];
+    CLxVector pos1 = positions3D[m_index[1]];
+    CLxVector pos2 = positions3D[m_index[2]];
+    CLxVector cen3D = MathUtil::TrianglePoint(pos0, pos1, pos2, c, c);
+    return cen3D;
 }

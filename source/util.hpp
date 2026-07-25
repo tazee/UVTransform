@@ -470,17 +470,14 @@ namespace MathUtil {
         return TrianglePoint(v0, v1, v2, u, v);
     }
 
-    static bool IntersectSegmentTriangle (
-        CLxVector& p0, CLxVector& p1,
+    static bool IntersectRayTriangle (
+        CLxVector& rayOrigin, CLxVector& rayVector,
         CLxVector& v0, CLxVector& v1, CLxVector& v2,
         double& outU, double& outV, double& outT) 
     {
         const double EPSILON = 1e-7;
         CLxVector edge1 = v1 - v0;
         CLxVector edge2 = v2 - v0;
-
-        CLxVector rayOrigin = p0;
-        CLxVector rayVector = p1 - p0;
         
         CLxVector h = rayVector.cross(edge2);
         double a = edge1.dot(h);
@@ -517,6 +514,53 @@ namespace MathUtil {
         }
 
         return false;
+    }
+
+    static bool IntersectSegmentTriangle (
+        CLxVector& p0, CLxVector& p1,
+        CLxVector& v0, CLxVector& v1, CLxVector& v2,
+        double& outU, double& outV, double& outT) 
+    {
+        CLxVector rayOrigin = p0;
+        CLxVector rayVector = p1 - p0;
+        return IntersectRayTriangle(rayOrigin, rayVector, v0, v1, v2, outU, outV, outT);
+    }
+
+    static bool intersectPlaneAndRay (
+        CLxVector& planeV0, CLxVector& planeV1, CLxVector& planeV2,
+        CLxVector& rayOrigin, CLxVector& rayDir,
+        CLxVector& outIntersection, double& outT) 
+    {
+        const double EPSILON = 1e-7;
+
+        // 1. 平面の法線ベクトルを計算する (V1 - V0) × (V2 - V0)
+        CLxVector edge1 = planeV1 - planeV0;
+        CLxVector edge2 = planeV2 - planeV0;
+        CLxVector normal = edge1.cross(edge2);
+
+        // 法線がゼロベクトル（3点が同一直線上にあるなど）の場合
+        double normalLenSq = normal.dot(normal);
+        if (normalLenSq < EPSILON * EPSILON) {
+            return false;
+        }
+
+        // 2. レイの方向と平面の法線ベクトルの内積を計算
+        double ndotDir = normal.dot(rayDir);
+
+        // 内積が 0 に近い場合、レイは平面と平行（または平面上に含まれる）
+        if (std::abs(ndotDir) < EPSILON) {
+            return false;
+        }
+
+        // 3. 平面の方程式からパラメータ t を求める
+        // t = ( (V0 - rayOrigin) · normal ) / ( rayDir · normal )
+        CLxVector v0ToOrigin = planeV0 - rayOrigin;
+        outT = v0ToOrigin.dot(normal) / ndotDir;
+
+        // 4. 交点の3次元座標を算出
+        outIntersection = rayOrigin + (rayDir * outT);
+
+        return true;
     }
 };
 

@@ -42,7 +42,9 @@ public:
     void DrawPolygonUV(CLxUser_StrokeDraw& draw, const LXpToolViewEvent* view);
     CLxVector PosUVto3D (double u, double v);
     CLxVector Pos3DtoUV (const LXtVector pos3D);
+    CLxVector ProjectPos3D (const LXtVector pos3D, const LXtVector dir);
     CLxVector TriangleNormal ();
+    CLxVector TriangleCenter ();
 
     CLxUser_Mesh m_mesh;
     CLxUser_MeshMap m_vmap;
