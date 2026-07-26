@@ -16,6 +16,7 @@
 #include <lxsdk/lxu_vector.hpp>
 #include <lxsdk/lxu_format.hpp>
 #include <lxsdk/lx_draw.hpp>
+#include <lxsdk/lx_handles.hpp>
 #include <lxsdk/lxvalue.h>
 
 #include <vector>
@@ -69,6 +70,7 @@ public:
     std::array<unsigned int,3> m_index;
     double m_s, m_t;
     CLxVector m_centerUV, m_center3D;
+    CLxVector m_polyCenterUV;
 
     std::vector<CLxVector> positions3D;
     std::vector<CLxVector> positionsUV;

@@ -63,6 +63,7 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, LX
         return false;
     }
 
+    CLxBoundingBox boxUV;
     std::unordered_map<LXtPointID,unsigned int> index_map;
     positions3D.resize(nvert);
     positionsUV.resize(nvert);
@@ -78,9 +79,10 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, LX
         m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
         positionsUV[i] = CLxVector(posUV);
         index_map[vrtID] = i;
+        boxUV.add(positionsUV[i]);
         //printf("[%u] posUV %f %f %f\n", i, posUV[0], posUV[1], posUV[2]);
     }
-
+    m_polyCenterUV = boxUV.center();
 
     CLxUser_Point upnt;
     upnt.fromMesh(mesh);
@@ -182,6 +184,8 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, LX
 
 void CSpaceTransform::DrawPolygon3D(CLxUser_StrokeDraw& draw, const LXpToolViewEvent* view)
 {
+	CLxUser_ShapeDraw shape (draw);
+
     if (m_polygon.test() == false)
         return;
     
@@ -215,11 +219,22 @@ void CSpaceTransform::DrawPolygon3D(CLxUser_StrokeDraw& draw, const LXpToolViewE
     draw.Vertex (positions3D[m_index[2]], LXiSTROKE_ABSOLUTE);
 
 	draw.PopTransform ();
+
+
+    LXx_VSET3(draw_rgb, 0.6, 0.6, 1.0);
+    LXtVector rad;
+    LXx_VSET(rad, 0.2);
+    CLxVector cent = PosUVto3D(m_polyCenterUV[0], m_polyCenterUV[1]);
+	draw.PushTransform (cent.v, m);
+    shape.PreciseHandle (draw_rgb, 0.8, v, rad, LXiSTROKE_SCREEN);
+	draw.PopTransform ();
 }
 
 
 void CSpaceTransform::DrawPolygonUV(CLxUser_StrokeDraw& draw, const LXpToolViewEvent* view)
 {
+	CLxUser_ShapeDraw shape (draw);
+
     if (m_polygon.test() == false)
         return;
     
@@ -239,7 +254,6 @@ void CSpaceTransform::DrawPolygonUV(CLxUser_StrokeDraw& draw, const LXpToolViewE
     LXx_VCLR(v);
 
     draw.SetPart (LXiHITPART_INVIS);
-	draw.PushTransform (v, m);
 
     draw.Begin (LXiSTROKE_LINE_LOOP, draw_rgb, 0.8);
 
@@ -252,6 +266,15 @@ void CSpaceTransform::DrawPolygonUV(CLxUser_StrokeDraw& draw, const LXpToolViewE
         CLxVector uv(posUV[0], posUV[1], 0.0);
         draw.Vertex (uv.v, LXiSTROKE_ABSOLUTE);
     }
+
+    LXx_VSET3(draw_rgb, 0.6, 0.6, 1.0);
+    LXtVector rad;
+    LXx_VSET(rad, 0.2);
+
+	draw.PushTransform (m_polyCenterUV.v, m);
+    //shape.CubeFill (draw_rgb, 0.8, v, rad, LXiSTROKE_SCREEN);
+    //shape.CrossHair (draw_rgb, 0.8, v, LXiSTROKE_SCREEN);
+    shape.PreciseHandle (draw_rgb, 0.8, v, rad, LXiSTROKE_SCREEN);
 	draw.PopTransform ();
 }
 
@@ -313,7 +336,7 @@ CLxVector CSpaceTransform::Pos3DtoUV (const LXtVector pos3D)
         MathUtil::IntersectSegmentTriangle(cen3D, hitPos, pos0, pos1, pos2, s, t, w);
         CLxVector side3D = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
         double f = (hitPos - cen3D).length() / (side3D - cen3D).length();
-        printf("3DtoUV f %f s %f t %f cen3D %f %f %f side3D %f %f %f\n", f, s, t, cen3D[0], cen3D[1], cen3D[2], side3D[0], side3D[1], side3D[2]);
+        //printf("3DtoUV f %f s %f t %f cen3D %f %f %f side3D %f %f %f\n", f, s, t, cen3D[0], cen3D[1], cen3D[2], side3D[0], side3D[1], side3D[2]);
         pos0 = positionsUV[m_index[0]];
         pos1 = positionsUV[m_index[1]];
         pos2 = positionsUV[m_index[2]];
@@ -340,7 +363,6 @@ CLxVector CSpaceTransform::ProjectPos3D (const LXtVector pos3D, const LXtVector 
     double t;
     if (MathUtil::intersectPlaneAndRay(pos0, pos1, pos2, rayOrigin, rayVector, outPos, t))
     {
-        printf("proj (%f) %f %f %f pos3D %f %f %f\n", t, outPos[0], outPos[1], outPos[2], pos3D[0], pos3D[1], pos3D[2]);
         return outPos;
     }
     else
