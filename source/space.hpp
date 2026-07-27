@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <lxsdk/lxvalue.h>
 #include <lxsdk/lx_wrap.hpp>
 #include <lxsdk/lx_toolui.hpp>
 #include <lxsdk/lx_tool.hpp>
@@ -17,7 +18,8 @@
 #include <lxsdk/lxu_format.hpp>
 #include <lxsdk/lx_draw.hpp>
 #include <lxsdk/lx_handles.hpp>
-#include <lxsdk/lxvalue.h>
+#include <lxsdk/lx_layer.hpp>
+#include <lxsdk/lx_select.hpp>
 
 #include <vector>
 #include <unordered_map>
@@ -46,6 +48,7 @@ public:
     CLxVector ProjectPos3D (const LXtVector pos3D, const LXtVector dir);
     CLxVector TriangleNormal ();
     CLxVector TriangleCenter ();
+    CLxVector SelectionCenterUV (CLxUser_Subject2Packet& subject, const char* name);
 
     CLxUser_Mesh m_mesh;
     CLxUser_MeshMap m_vmap;

@@ -48,7 +48,7 @@ const char* SRVNAME_TOOL = "tool.uvTransform";
 #define ATTRs_CENTER_U  "centerU"
 #define ATTRs_CENTER_V  "centerV"
 #define ATTRs_TWEAK     "tweak"
-#define ATTRs_UNIFORM   "uniform"
+#define ATTRs_CENTER_PIVOT "centerPivot"
 
 #define ATTRa_TRANS_U   0
 #define ATTRa_TRANS_V   1
@@ -58,7 +58,7 @@ const char* SRVNAME_TOOL = "tool.uvTransform";
 #define ATTRa_CENTER_U  5
 #define ATTRa_CENTER_V  6
 #define ATTRa_TWEAK     7
-#define ATTRa_UNIFORM   8
+#define ATTRa_CENTER_PIVOT   8
 
 #define HANDLE_CENTER   0x1000
 #define HANDLE_TRANS_U  0x2000
@@ -142,8 +142,11 @@ public:
     CLxMatrix4 m_view_matrix_inv;
     CRotationHandle m_rotHandle;
     CSpaceTransform m_space;
+    CLxVector m_selectionCenter;
     int m_part;
-    int m_uniform;
+    int m_center_pivot;
+    int m_constrain;
+    int m_constrain_axis;
 
     // Tweak mode
     CLxUser_Point m_point;

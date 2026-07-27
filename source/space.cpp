@@ -197,7 +197,6 @@ void CSpaceTransform::DrawPolygon3D(CLxUser_StrokeDraw& draw, const LXpToolViewE
 
     int index;
     m_polygon.Index(&index);
-    //printf("DrawPolygon: (%d) npol=%u, type=%u\n", index, m_poly_info.npol, m_poly_info.type);
     LXtVector p0, draw_rgb;
     LXx_VSET3(draw_rgb, 1.0, 0.4, 1.0);
 
@@ -207,8 +206,6 @@ void CSpaceTransform::DrawPolygon3D(CLxUser_StrokeDraw& draw, const LXpToolViewE
     m_matrix.getMatrix3x3(m);
     CLxVector translation = m_matrix.getTranslation();
     LXx_VCPY(v, translation.v);
-
-    //m_polygon.Tessellate(LXm_PMI_ALL, &m_poly_info);
 
     draw.SetPart (LXiHITPART_INVIS);
 	draw.PushTransform (v, m);
@@ -336,7 +333,6 @@ CLxVector CSpaceTransform::Pos3DtoUV (const LXtVector pos3D)
         MathUtil::IntersectSegmentTriangle(cen3D, hitPos, pos0, pos1, pos2, s, t, w);
         CLxVector side3D = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
         double f = (hitPos - cen3D).length() / (side3D - cen3D).length();
-        //printf("3DtoUV f %f s %f t %f cen3D %f %f %f side3D %f %f %f\n", f, s, t, cen3D[0], cen3D[1], cen3D[2], side3D[0], side3D[1], side3D[2]);
         pos0 = positionsUV[m_index[0]];
         pos1 = positionsUV[m_index[1]];
         pos2 = positionsUV[m_index[2]];
@@ -391,4 +387,98 @@ CLxVector CSpaceTransform::TriangleCenter ()
     CLxVector pos2 = positions3D[m_index[2]];
     CLxVector cen3D = MathUtil::TrianglePoint(pos0, pos1, pos2, c, c);
     return cen3D;
+}
+
+class VertexVisitor1 : public CLxImpl_AbstractVisitor
+{
+public:
+    LxResult Evaluate()
+    {
+        m_vert.SetMarks(m_mark_done);
+        return LXe_OK;
+    }
+    CLxUser_Mesh    m_mesh;
+    CLxUser_Point   m_vert;
+    LXtMarkMode     m_mark_done;
+};
+
+class PolygonVisitor1 : public CLxImpl_AbstractVisitor
+{
+public:
+    LxResult Evaluate()
+    {
+        unsigned int nvert;
+        int index;
+        m_poly.VertexCount(&nvert);
+        m_poly.Index(&index);
+        for (auto i = 0u; i < nvert; i++)
+        {
+            LXtPointID vertID;
+            m_poly.VertexByIndex(i, &vertID);
+            m_vert.Select(vertID);
+            unsigned index;
+            m_vert.Index(&index);
+            if (m_vert.TestMarks(m_mark_pick) == LXe_FALSE)
+                continue;
+            float value[2], new_value[2];
+            if (m_poly.MapValue(m_vmap.ID(), vertID, value) == LXe_OK)
+            {
+                if (m_vert.TestMarks(m_mark_pick) == LXe_TRUE)
+                {
+                    CLxVector posUV(value[0], value[1], 0.0);
+                    m_boxUV.add(posUV);
+                    printf("posUV %f %f\n", posUV[0], posUV[1]);
+                }
+            }
+            else if (m_vert.TestMarks(m_mark_done) == LXe_FALSE)
+            {
+                if (m_vert.MapValue(m_vmap.ID(), value) == LXe_OK)
+                {
+                    CLxVector posUV(value[0], value[1], 0.0);
+                    m_boxUV.add(posUV);
+                    printf("posUV %f %f\n", posUV[0], posUV[1]);
+                }
+                m_vert.SetMarks(m_mark_done);
+            }
+        }
+        return LXe_OK;
+    }
+
+    CLxUser_Mesh    m_mesh;
+    CLxUser_Polygon m_poly;
+    CLxUser_Point   m_vert;
+    CLxUser_Edge    m_edge;
+    CLxUser_MeshMap m_vmap;
+    LXtMarkMode     m_mark_pick;
+    LXtMarkMode     m_mark_done;
+    CLxBoundingBox  m_boxUV;
+};
+
+CLxVector CSpaceTransform::SelectionCenterUV (CLxUser_Subject2Packet& subject, const char* name)
+{
+    CLxUser_LayerScan  scan;
+    PolygonVisitor1 vis;
+
+    subject.BeginScan(LXf_LAYERSCAN_ACTIVE | LXf_LAYERSCAN_MARKALL, scan);
+    auto count = scan.NumLayers();
+    printf("SelectionCenterUV (%s) count = %u\n", name, count);
+
+    vis.m_mesh = m_mesh;
+    vis.m_vmap = m_vmap;
+    VertexVisitor1 vvis;
+    vvis.m_vert.fromMesh(m_mesh);
+    vvis.m_mark_done = mesh_svc.ClearMode(LXsMARK_USER_0);
+    vvis.m_vert.Enum(&vvis, LXiMARK_ANY);
+    vis.m_poly.fromMesh(m_mesh);
+    vis.m_vert.fromMesh(m_mesh);
+    vis.m_edge.fromMesh(m_mesh);
+    vis.m_mark_done = mesh_svc.SetMode(LXsMARK_USER_0);
+    vis.m_mark_pick = mesh_svc.SetMode(LXsMARK_SELECT);
+    if (subject.Type() == LXiSEL_POLYGON)
+        vis.m_poly.Enum(&vis, vis.m_mark_pick);
+    else
+        vis.m_poly.Enum(&vis, LXiMARK_ANY);
+
+    scan.Apply();
+    return vis.m_boxUV.center();
 }
