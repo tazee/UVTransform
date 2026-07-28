@@ -181,12 +181,21 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, LX
     return true;
 }
 
+bool CSpaceTransform::Test()
+{
+    if ((positions3D.size () < 3) || (positionsUV.size() < 3))
+        return false;
+    if (m_polygon.test() == false)
+        return false;
+    return true;
+}
+
 
 void CSpaceTransform::DrawPolygon3D(CLxUser_StrokeDraw& draw, const LXpToolViewEvent* view)
 {
 	CLxUser_ShapeDraw shape (draw);
 
-    if (m_polygon.test() == false)
+    if (Test() == false)
         return;
     
     if (view == nullptr)
@@ -232,7 +241,7 @@ void CSpaceTransform::DrawPolygonUV(CLxUser_StrokeDraw& draw, const LXpToolViewE
 {
 	CLxUser_ShapeDraw shape (draw);
 
-    if (m_polygon.test() == false)
+    if (Test() == false)
         return;
     
     if (view == nullptr)
@@ -278,6 +287,8 @@ void CSpaceTransform::DrawPolygonUV(CLxUser_StrokeDraw& draw, const LXpToolViewE
 
 CLxVector CSpaceTransform::PosUVto3D (double u, double v)
 {
+    if (Test() == false)
+        return CLxVector();
     CLxVector hitPos(u, v, 0.0);
     CLxVector pos0 = positionsUV[m_index[0]];
     CLxVector pos1 = positionsUV[m_index[1]];
@@ -298,7 +309,8 @@ CLxVector CSpaceTransform::PosUVto3D (double u, double v)
         double w;
         MathUtil::IntersectSegmentTriangle(cenUV, hitPos, pos0, pos1, pos2, s, t, w);
         CLxVector sideUV = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
-        double f = (hitPos - cenUV).length() / (sideUV - cenUV).length();
+        double l = (sideUV - cenUV).length();
+        double f = (l > 0.0) ? ((hitPos - cenUV).length() / l) : 0.0;
         pos0 = positions3D[m_index[0]];
         pos1 = positions3D[m_index[1]];
         pos2 = positions3D[m_index[2]];
@@ -312,6 +324,8 @@ CLxVector CSpaceTransform::PosUVto3D (double u, double v)
 
 CLxVector CSpaceTransform::Pos3DtoUV (const LXtVector pos3D)
 {
+    if (Test() == false)
+        return CLxVector(0,0,0);
     CLxVector hitPos(pos3D);
     CLxVector pos0 = positions3D[m_index[0]];
     CLxVector pos1 = positions3D[m_index[1]];
@@ -332,7 +346,8 @@ CLxVector CSpaceTransform::Pos3DtoUV (const LXtVector pos3D)
         double w;
         MathUtil::IntersectSegmentTriangle(cen3D, hitPos, pos0, pos1, pos2, s, t, w);
         CLxVector side3D = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
-        double f = (hitPos - cen3D).length() / (side3D - cen3D).length();
+        double l = (side3D - cen3D).length();
+        double f = (l > 0.0) ? ((hitPos - cen3D).length() / l) : 0.0;
         pos0 = positionsUV[m_index[0]];
         pos1 = positionsUV[m_index[1]];
         pos2 = positionsUV[m_index[2]];
@@ -346,7 +361,7 @@ CLxVector CSpaceTransform::Pos3DtoUV (const LXtVector pos3D)
 
 CLxVector CSpaceTransform::ProjectPos3D (const LXtVector pos3D, const LXtVector dir)
 {
-    if (positions3D.size() < 4)
+    if (Test() == false)
     {
         return CLxVector(pos3D);
     }
@@ -368,6 +383,8 @@ CLxVector CSpaceTransform::ProjectPos3D (const LXtVector pos3D, const LXtVector 
 
 CLxVector CSpaceTransform::TriangleNormal ()
 {
+    if (Test() == false)
+        return CLxVector(0,0,0);
     CLxVector pos0 = positions3D[m_index[0]];
     CLxVector pos1 = positions3D[m_index[1]];
     CLxVector pos2 = positions3D[m_index[2]];
@@ -381,6 +398,8 @@ CLxVector CSpaceTransform::TriangleNormal ()
 
 CLxVector CSpaceTransform::TriangleCenter ()
 {
+    if (Test() == false)
+        return CLxVector(0,0,0);
     const double c = 1.0 / 3.0;
     CLxVector pos0 = positions3D[m_index[0]];
     CLxVector pos1 = positions3D[m_index[1]];
@@ -389,20 +408,7 @@ CLxVector CSpaceTransform::TriangleCenter ()
     return cen3D;
 }
 
-class VertexVisitor1 : public CLxImpl_AbstractVisitor
-{
-public:
-    LxResult Evaluate()
-    {
-        m_vert.SetMarks(m_mark_done);
-        return LXe_OK;
-    }
-    CLxUser_Mesh    m_mesh;
-    CLxUser_Point   m_vert;
-    LXtMarkMode     m_mark_done;
-};
-
-class PolygonVisitor1 : public CLxImpl_AbstractVisitor
+class BoxVisitor : public CLxImpl_AbstractVisitor
 {
 public:
     LxResult Evaluate()
@@ -427,18 +433,15 @@ public:
                 {
                     CLxVector posUV(value[0], value[1], 0.0);
                     m_boxUV.add(posUV);
-                    printf("posUV %f %f\n", posUV[0], posUV[1]);
                 }
             }
-            else if (m_vert.TestMarks(m_mark_done) == LXe_FALSE)
+            else
             {
                 if (m_vert.MapValue(m_vmap.ID(), value) == LXe_OK)
                 {
                     CLxVector posUV(value[0], value[1], 0.0);
                     m_boxUV.add(posUV);
-                    printf("posUV %f %f\n", posUV[0], posUV[1]);
                 }
-                m_vert.SetMarks(m_mark_done);
             }
         }
         return LXe_OK;
@@ -454,31 +457,26 @@ public:
     CLxBoundingBox  m_boxUV;
 };
 
-CLxVector CSpaceTransform::SelectionCenterUV (CLxUser_Subject2Packet& subject, const char* name)
+CLxVector CSpaceTransform::SelectionCenterUV (CLxUser_Subject2Packet& subject)
 {
+    if (Test() == false)
+        return CLxVector();
     CLxUser_LayerScan  scan;
-    PolygonVisitor1 vis;
 
     subject.BeginScan(LXf_LAYERSCAN_ACTIVE | LXf_LAYERSCAN_MARKALL, scan);
-    auto count = scan.NumLayers();
-    printf("SelectionCenterUV (%s) count = %u\n", name, count);
 
+    BoxVisitor vis;
     vis.m_mesh = m_mesh;
     vis.m_vmap = m_vmap;
-    VertexVisitor1 vvis;
-    vvis.m_vert.fromMesh(m_mesh);
-    vvis.m_mark_done = mesh_svc.ClearMode(LXsMARK_USER_0);
-    vvis.m_vert.Enum(&vvis, LXiMARK_ANY);
     vis.m_poly.fromMesh(m_mesh);
     vis.m_vert.fromMesh(m_mesh);
     vis.m_edge.fromMesh(m_mesh);
-    vis.m_mark_done = mesh_svc.SetMode(LXsMARK_USER_0);
     vis.m_mark_pick = mesh_svc.SetMode(LXsMARK_SELECT);
     if (subject.Type() == LXiSEL_POLYGON)
         vis.m_poly.Enum(&vis, vis.m_mark_pick);
     else
         vis.m_poly.Enum(&vis, LXiMARK_ANY);
 
-    scan.Apply();
+    m_polyCenterUV = vis.m_boxUV.center();
     return vis.m_boxUV.center();
 }

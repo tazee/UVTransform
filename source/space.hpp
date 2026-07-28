@@ -48,7 +48,8 @@ public:
     CLxVector ProjectPos3D (const LXtVector pos3D, const LXtVector dir);
     CLxVector TriangleNormal ();
     CLxVector TriangleCenter ();
-    CLxVector SelectionCenterUV (CLxUser_Subject2Packet& subject, const char* name);
+    CLxVector SelectionCenterUV (CLxUser_Subject2Packet& subject);
+    bool Test();
 
     CLxUser_Mesh m_mesh;
     CLxUser_MeshMap m_vmap;
