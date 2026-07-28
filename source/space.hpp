@@ -25,6 +25,7 @@
 #include <unordered_map>
 #include <string>
 #include <format>
+#include <array>
 
 #ifndef LXx_OVERRIDE
 #define LXx_OVERRIDE override
