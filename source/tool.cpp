@@ -266,7 +266,7 @@ LxResult CUVTransform::tmod_Down(ILxUnknownID vts, ILxUnknownID adjust)
     dyna_Value(ATTRa_CENTER_U).GetFlt(&m_center0[0]);
     dyna_Value(ATTRa_CENTER_V).GetFlt(&m_center0[1]);
     dyna_Value(ATTRa_CENTER_PIVOT).GetInt(&m_center_pivot);
-    printf("[DOWN] m_scale0 %f %f part (%x)\n", m_scale0[0], m_scale0[1], ipak->part);
+    printf("[DOWN] m_scale0 %f %f part (%x) mode (%x)\n", m_scale0[0], m_scale0[1], ipak->part, ipak->mode);
 
     if (m_center_pivot)
     {
@@ -388,7 +388,7 @@ void CUVTransform::tmod_Move(ILxUnknownID vts, ILxUnknownID adjust)
 
     LXtMatrix xfrm;
     CLxVector pos0, pos1;
-    double trans_u, trans_v;
+    double delta_u, delta_v;
 
     if (view->type == LXi_VIEWTYPE_3D)
     {
@@ -396,8 +396,8 @@ void CUVTransform::tmod_Move(ILxUnknownID vts, ILxUnknownID adjust)
         {
             pos0 = m_space.Pos3DtoUV(m_mousePos);
             pos1 = m_space.Pos3DtoUV(new_pos);
-            trans_u = pos1[0] - pos0[0];
-            trans_v = pos1[1] - pos0[1];
+            delta_u = pos1[0] - pos0[0];
+            delta_v = pos1[1] - pos0[1];
         }
         else
         {
@@ -406,20 +406,29 @@ void CUVTransform::tmod_Move(ILxUnknownID vts, ILxUnknownID adjust)
             LXx_VSET3(dir, m_view_matrix[2][0], m_view_matrix[2][1], m_view_matrix[2][2]);
             pos1 = m_space.ProjectPos3D(new_pos, dir);
             pos1 = m_space.Pos3DtoUV(pos1.v);
-            trans_u = pos1[0] - pos0[0];
-            trans_v = pos1[1] - pos0[1];
+            delta_u = pos1[0] - pos0[0];
+            delta_v = pos1[1] - pos0[1];
         }
     }
     else
     {
         pos0 = CLxVector(m_mousePos);
         pos1 = CLxVector(new_pos);
-        trans_u = pos1[0] - pos0[0];
-        trans_v = pos1[1] - pos0[1];
+        delta_u = pos1[0] - pos0[0];
+        delta_v = pos1[1] - pos0[1];
     }
     //printf("[MOVE] input %d constrain %d trans %f %f\n", ipak->input, m_constrain, trans_u, trans_v);
 
-    double scale_u, scale_v;
+    double trans_u = delta_u;
+    double trans_v = delta_v;
+    double scale_u = delta_u * 2.5;
+    double scale_v = delta_v * 2.5;
+
+    if (view->type == LXi_VIEWTYPE_3D)
+    {
+        trans_u *= -1.0;
+        trans_v *= -1.0;
+    }
 
     switch (m_part)
     {
@@ -430,14 +439,20 @@ void CUVTransform::tmod_Move(ILxUnknownID vts, ILxUnknownID adjust)
             at.SetFlt(ATTRa_TRANS_V, m_trans0[1] + trans_v);
             break;
         case HANDLE_SCALE_U:
-            scale_u = m_scale0[0] + trans_u;
-            scale_v = m_constrain ? scale_u : (m_scale0[1] + trans_v);
+            scale_u += m_scale0[0];
+            if (m_constrain)
+                scale_v = scale_u;
+            else
+                scale_v += m_scale0[1];
             at.SetFlt(ATTRa_SCALE_U, scale_u);
             at.SetFlt(ATTRa_SCALE_V, scale_v);
             break;
         case HANDLE_SCALE_V:
-            scale_v = m_scale0[1] + trans_v;
-            scale_u = m_constrain ? scale_v : (m_scale0[0] + trans_u);
+            scale_v += m_scale0[1];
+            if (m_constrain)
+                scale_u = scale_v;
+            else
+                scale_u += m_scale0[0];
             at.SetFlt(ATTRa_SCALE_U, scale_u);
             at.SetFlt(ATTRa_SCALE_V, scale_v);
             break;
@@ -472,6 +487,9 @@ void CUVTransform::tmod_Move(ILxUnknownID vts, ILxUnknownID adjust)
             m_view_matrix.getMatrix3x3(xfrm);
             m_rotHandle.MouseMove(new_pos);
             m_rotHandle.GetAngles(2, xfrm, &m_sAngle, &m_eAngle);
+            m_rotHandle.m_angle = (spak->fpx - spak->fcx) * 0.01;
+            m_eAngle = LXx_HALFPI;
+            m_sAngle = m_eAngle + m_rotHandle.m_angle;
             if (m_constrain)
             {
                 double deg15 = LXx_PI / 12;
@@ -482,35 +500,36 @@ void CUVTransform::tmod_Move(ILxUnknownID vts, ILxUnknownID adjust)
                 at.SetFlt(ATTRa_ANGLE, m_angle0 + m_rotHandle.m_angle);
             break;
         default:
-            if (ipak->input == LXiTIE_INPUT_I0)
+            if (m_constrain && (m_constrain_axis == -1))
             {
-                if (m_constrain && (m_constrain_axis == -1))
-                {
-                    int ix = std::abs(spak->cy - spak->py) > std::abs(spak->cx - spak->px);
-                    LXtVector dir;
-                    LXx_VSET3(dir, m_view_matrix[ix][0], m_view_matrix[ix][1], m_view_matrix[ix][2]);
-                    epkt.SetLinearConstraint(vts, m_mousePos, dir);
-                    m_constrain_axis = ix;
-                }
+                int dy = std::abs(spak->cy - spak->py);
+                int dx = std::abs(spak->cx - spak->px);
+                if (std::abs(dx - dy) < 5)
+                    return;
+                m_constrain_axis = (dy > dx);
             }
             if (ipak->input == LXiTIE_INPUT_I1)
             {
                 if (m_constrain)
                 {
-                    at.SetFlt(ATTRa_SCALE_U, m_scale0[0] + trans_u);
-                    at.SetFlt(ATTRa_SCALE_V, m_scale0[1] + trans_v);
+                    if ((m_constrain_axis == -1) || (m_constrain_axis == 0))
+                        at.SetFlt(ATTRa_SCALE_U, m_scale0[0] + scale_u);
+                    if ((m_constrain_axis == -1) || (m_constrain_axis == 1))
+                        at.SetFlt(ATTRa_SCALE_V, m_scale0[1] + scale_v);
                 }
                 else
                 {
-                    double scale = m_scale0[0] + trans_u;
+                    double scale = m_scale0[0] + scale_u;
                     at.SetFlt(ATTRa_SCALE_U, scale);
                     at.SetFlt(ATTRa_SCALE_V, scale);
                 }
             }
             else
             {
-                at.SetFlt(ATTRa_TRANS_U, trans_u);
-                at.SetFlt(ATTRa_TRANS_V, trans_v);
+                if ((m_constrain_axis == -1) || (m_constrain_axis == 0))
+                    at.SetFlt(ATTRa_TRANS_U, trans_u);
+                if ((m_constrain_axis == -1) || (m_constrain_axis == 1))
+                    at.SetFlt(ATTRa_TRANS_V, trans_v);
             }
             break;
     }
@@ -521,10 +540,30 @@ void CUVTransform::tmod_Up(ILxUnknownID vts, ILxUnknownID adjust)
 {
     CLxUser_AdjustTool at(adjust);
     CLxUser_VectorStack vec(vts);
+	LXpToolViewEvent*    view = static_cast<LXpToolViewEvent *>(vec.Read (offset_view));
     m_part = -1;
     m_offset = 0.0;
     m_sAngle = 0.0;
     m_eAngle = 0.0;
+    double trans_u, trans_v;
+    dyna_Value(ATTRa_TRANS_U).GetFlt(&trans_u);
+    dyna_Value(ATTRa_TRANS_V).GetFlt(&trans_v);
+    if ((trans_u != m_trans0[0]) || (trans_v != m_trans0[1]))
+    {
+        double u, v;
+        if (view->type == LXi_VIEWTYPE_3D)
+        {
+            u = m_center0[0] - (trans_u - m_trans0[0]);
+            v = m_center0[1] - (trans_v - m_trans0[1]);
+        }
+        else
+        {
+            u = m_center0[0] + (trans_u - m_trans0[0]);
+            v = m_center0[1] + (trans_v - m_trans0[1]);
+        }
+        at.SetFlt(ATTRa_CENTER_U, u);
+        at.SetFlt(ATTRa_CENTER_V, v);
+    }
     at.Invalidate();
 }
 
@@ -603,8 +642,6 @@ void CUVTransform::DrawHandles (ILxUnknownID vts, ILxUnknownID stroke, int flags
 	ScaleHandle (stroke, pos, m, 1, HANDLE_SCALE_V, m_offset, dFlags, view->type);
 
     // Rotate Handle
-    //m_sAngle = 0.0;
-    //m_eAngle = 45.0 * LXx_DEG2RAD;
 	dFlags = (m_part == HANDLE_ROTATE) ? LXi_THANDf_HOT : 0;
 	handle.RotateHandle (pos, m, 2, HANDLE_ROTATE, m_sAngle, m_eAngle, 0, dFlags);
 	//handle.RotateMouseHandle (pos, m_mousePos, m, 2, HANDLE_ROTATE, dFlags);

@@ -33,5 +33,5 @@ This kit contains a direct modeling tool for Modo macOS and Windows.
 - <b>Control-LMB Dragging Scale Handle</b> : Uniform scale.
 - <b>Control-LMB Dragging Rotate Handle</b> : Rotate angle with 15 degree snapping.
 - <b>RMB Click and Hauling</b> : Set the reference polygon and uniform scale UV values.
-- <b>Control-RMB Click and Hauling</b> : Set the reference polygon and scale UV values.
+- <b>Control-RMB Click and Hauling</b> : Set the reference polygon and scale UV values along constraint axis.
 
