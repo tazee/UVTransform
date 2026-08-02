@@ -42,10 +42,12 @@ public:
         m_vmap.Select(vmapID);
     }
     bool SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, LXtHitElement& hit);
+    void UpdatePositionUV();
     void DrawPolygon3D(CLxUser_StrokeDraw& draw, const LXpToolViewEvent* view);
     void DrawPolygonUV(CLxUser_StrokeDraw& draw, const LXpToolViewEvent* view);
     CLxVector PosUVto3D (double u, double v);
     CLxVector Pos3DtoUV (const LXtVector pos3D);
+    CLxVector FindPos3D (double u, double v);
     CLxVector ProjectPos3D (const LXtVector pos3D, const LXtVector dir);
     CLxVector TriangleNormal ();
     CLxVector TriangleCenter ();
@@ -77,6 +79,7 @@ public:
     CLxVector m_centerUV, m_center3D;
     CLxVector m_polyCenterUV;
 
+    std::vector<std::array<unsigned int,3>> triangles;
     std::vector<CLxVector> positions3D;
     std::vector<CLxVector> positionsUV;
 };

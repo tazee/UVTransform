@@ -10,6 +10,7 @@
 #include <lxsdk/lxu_vector.hpp>
 #include <lxsdk/lxu_math.hpp>
 #include <lxsdk/lxu_format.hpp>
+#include <lxsdk/lxu_command.hpp>
 
 #include <lxsdk/lx_layer.hpp>
 #include <lxsdk/lx_mesh.hpp>
@@ -26,6 +27,7 @@
 #include <lxsdk/lx_draw.hpp>
 #include <lxsdk/lx_handles.hpp>
 #include <lxsdk/lx_vp.hpp>
+#include <lxsdk/lx_command.hpp>
 
 #include <lxsdk/lx_value.hpp>
 #include <lxsdk/lx_select.hpp>
@@ -36,9 +38,12 @@
 #include "util.hpp"
 #include "space.hpp"
 
+//#include <fmt/format.h>
+
 using namespace lx_err;
 
 const char* SRVNAME_TOOL = "tool.uvTransform";
+const char* SRVNAME_COMMAND = "command.uvTransform";
 
 #define ATTRs_TRANS_U   "transU"
 #define ATTRs_TRANS_V   "transV"
@@ -79,7 +84,10 @@ const char* SRVNAME_TOOL = "tool.uvTransform";
  * attributes interface is inherited from the utility class.
  */
 
-class CUVTransform : public CLxImpl_Tool, public CLxImpl_ToolModel, public CLxDynamicAttributes, public CLxImpl_ChannelUI
+class CUVTransform : public CLxImpl_Tool, 
+                        public CLxImpl_ToolModel, 
+                        public CLxDynamicAttributes, 
+                        public CLxImpl_ChannelUI
 {
 public:
     CUVTransform();
@@ -142,15 +150,23 @@ public:
     CLxMatrix4 m_view_matrix_inv;
     CRotationHandle m_rotHandle;
     CSpaceTransform m_space;
-    CLxVector m_selectionCenter;
     int m_part;
     int m_center_pivot;
     int m_constrain;
     int m_constrain_axis;
+    bool m_mouseDown;
+
+    CLxVector m_center3D;
+    CLxVector m_selection_center3D;
 
     // Tweak mode
     CLxUser_Point m_point;
     CLxUser_Polygon m_polygon;
     CLxUser_Edge m_edge;
 };
-
+class CUVTransformCommand : public CLxBasicCommand
+{
+public:
+	int         basic_CmdFlags() LXx_OVERRIDE;
+	void        basic_Execute(unsigned int flags) LXx_OVERRIDE;
+};

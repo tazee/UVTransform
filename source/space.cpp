@@ -56,7 +56,6 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, LX
     m_polygon.Select(polyID);
     unsigned int nvert;
     m_polygon.VertexCount(&nvert);
-    printf("SetPolygon: vrt=%p edge=%p pol=%p, nvert=%u\n", hit.vrt, hit.edge, hit.pol, nvert);
     if (nvert < 3)
     {
         m_polygon.clear();
@@ -86,8 +85,8 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, LX
 
     CLxUser_Point upnt;
     upnt.fromMesh(mesh);
+    triangles.clear();
     unsigned int count;
-    std::vector<std::array<unsigned int,3>> triangles;
     std::array<unsigned int,3> index;
     m_polygon.GenerateTriangles(&count);
     for (auto i = 0; i < count; i++)
@@ -226,7 +225,7 @@ void CSpaceTransform::DrawPolygon3D(CLxUser_StrokeDraw& draw, const LXpToolViewE
 
 	draw.PopTransform ();
 
-
+    /*
     LXx_VSET3(draw_rgb, 0.6, 0.6, 1.0);
     LXtVector rad;
     LXx_VSET(rad, 0.2);
@@ -234,6 +233,7 @@ void CSpaceTransform::DrawPolygon3D(CLxUser_StrokeDraw& draw, const LXpToolViewE
 	draw.PushTransform (cent.v, m);
     shape.PreciseHandle (draw_rgb, 0.8, v, rad, LXiSTROKE_SCREEN);
 	draw.PopTransform ();
+    */
 }
 
 
@@ -277,11 +277,9 @@ void CSpaceTransform::DrawPolygonUV(CLxUser_StrokeDraw& draw, const LXpToolViewE
     LXtVector rad;
     LXx_VSET(rad, 0.2);
 
-	draw.PushTransform (m_polyCenterUV.v, m);
-    //shape.CubeFill (draw_rgb, 0.8, v, rad, LXiSTROKE_SCREEN);
-    //shape.CrossHair (draw_rgb, 0.8, v, LXiSTROKE_SCREEN);
-    shape.PreciseHandle (draw_rgb, 0.8, v, rad, LXiSTROKE_SCREEN);
-	draw.PopTransform ();
+	//draw.PushTransform (m_polyCenterUV.v, m);
+    //shape.PreciseHandle (draw_rgb, 0.8, v, rad, LXiSTROKE_SCREEN);
+	//draw.PopTransform ();
 }
 
 
@@ -304,6 +302,135 @@ CLxVector CSpaceTransform::PosUVto3D (double u, double v)
     }
     else
     {
+        const double c = 1.0 / 3.0;
+        CLxVector cenUV = MathUtil::TrianglePoint(pos0, pos1, pos2, c, c);
+        double w;
+        MathUtil::IntersectSegmentTriangle(cenUV, hitPos, pos0, pos1, pos2, s, t, w);
+        CLxVector sideUV = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
+        double l = (sideUV - cenUV).length();
+        double f = (l > 0.0) ? ((hitPos - cenUV).length() / l) : 0.0;
+        pos0 = positions3D[m_index[0]];
+        pos1 = positions3D[m_index[1]];
+        pos2 = positions3D[m_index[2]];
+        CLxVector cen3D = MathUtil::TrianglePoint(pos0, pos1, pos2, c, c);
+        CLxVector side3D = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
+        pos3D = (side3D - cen3D) * f + cen3D;
+    }
+    return pos3D;
+}
+
+
+CLxVector CSpaceTransform::FindPos3D (double u, double v)
+{
+    if (Test() == false)
+        return CLxVector();
+
+    CLxVector hitPos(u, v, 0.0);
+
+    CLxUser_Polygon polygon;
+    CLxUser_Point point;
+    polygon.fromMesh(m_mesh);
+    point.fromMesh(m_mesh);
+
+    LXtFVector pos3d, posUV;
+    LXtPointID vrtID;
+    LXx_VCLR(posUV);
+    m_polygon.VertexByIndex(m_index[0], &vrtID);
+    point.Select(vrtID);
+    m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
+    CLxVector pos0 = CLxVector(posUV);
+    polygon.VertexByIndex(m_index[1], &vrtID);
+    point.Select(vrtID);
+    m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
+    CLxVector pos1 = CLxVector(posUV);
+    polygon.VertexByIndex(m_index[2], &vrtID);
+    point.Select(vrtID);
+    m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
+    CLxVector pos2 = CLxVector(posUV);
+
+    double s, t;
+    CLxVector pos3D;
+    if (MathUtil::PointInTriangle(hitPos, pos0, pos1, pos2, s, t) == true)
+    {
+        pos0 = positions3D[m_index[0]];
+        pos1 = positions3D[m_index[1]];
+        pos2 = positions3D[m_index[2]];
+        pos3D = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
+    }
+    else
+    {
+        for (auto index : triangles)
+        {
+            if (index == m_index)
+                continue;
+            m_polygon.VertexByIndex(index[0], &vrtID);
+            point.Select(vrtID);
+            m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
+            pos0 = CLxVector(posUV);
+            m_polygon.VertexByIndex(index[1], &vrtID);
+            point.Select(vrtID);
+            m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
+            pos1 = CLxVector(posUV);
+            m_polygon.VertexByIndex(index[2], &vrtID);
+            point.Select(vrtID);
+            m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
+            pos2 = CLxVector(posUV);
+            if (MathUtil::PointInTriangle(hitPos, pos0, pos1, pos2, s, t) == true)
+            {
+                pos0 = positions3D[index[0]];
+                pos1 = positions3D[index[1]];
+                pos2 = positions3D[index[2]];
+                pos3D = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
+                return pos3D;
+            }
+        }
+        unsigned int count;
+        m_mesh.PolygonCount(&count);
+        for (auto i = 0u; i < count; i++)
+        {
+            unsigned int ntri;
+            polygon.SelectByIndex(i);
+            if (polygon == m_polygon)
+                continue;
+            polygon.GenerateTriangles(&ntri);
+            for (auto j = 0; j < ntri; j++)
+            {
+                LXtPointID v[3];
+                polygon.TriangleByIndex(j, &v[0], &v[1], &v[2]);
+                polygon.MapEvaluate(m_vmap.ID(), v[0], posUV);
+                pos0  = CLxVector(posUV);
+                polygon.MapEvaluate(m_vmap.ID(), v[1], posUV);
+                pos1  = CLxVector(posUV);
+                polygon.MapEvaluate(m_vmap.ID(), v[2], posUV);
+                pos2  = CLxVector(posUV);
+                if (MathUtil::PointInTriangle(hitPos, pos0, pos1, pos2, s, t) == true)
+                {
+                    point.Select(v[0]);
+                    point.Pos(pos3d);
+                    pos0  = CLxVector(pos3d);
+                    point.Select(v[1]);
+                    point.Pos(pos3d);
+                    pos1  = CLxVector(pos3d);
+                    point.Select(v[2]);
+                    point.Pos(pos3d);
+                    pos2  = CLxVector(pos3d);
+                    pos3D = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
+                    return pos3D;
+                }
+            }
+        }
+        m_polygon.VertexByIndex(m_index[0], &vrtID);
+        point.Select(vrtID);
+        m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
+        pos0 = CLxVector(posUV);
+        m_polygon.VertexByIndex(m_index[1], &vrtID);
+        point.Select(vrtID);
+        m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
+        pos1 = CLxVector(posUV);
+        m_polygon.VertexByIndex(m_index[2], &vrtID);
+        point.Select(vrtID);
+        m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
+        pos2 = CLxVector(posUV);
         const double c = 1.0 / 3.0;
         CLxVector cenUV = MathUtil::TrianglePoint(pos0, pos1, pos2, c, c);
         double w;
@@ -479,4 +606,22 @@ CLxVector CSpaceTransform::SelectionCenterUV (CLxUser_Subject2Packet& subject)
 
     m_polyCenterUV = vis.m_boxUV.center();
     return vis.m_boxUV.center();
+}
+
+
+void CSpaceTransform::UpdatePositionUV()
+{
+    CLxBoundingBox boxUV;
+    for (auto i = 0u; i < positionsUV.size(); i++)
+    {
+        LXtPointID vrtID;
+        m_polygon.VertexByIndex(i, &vrtID);
+        LXtFVector posUV;
+        m_point.Select(vrtID);
+        LXx_VCLR(posUV);
+        m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
+        positionsUV[i] = CLxVector(posUV);
+        boxUV.add(positionsUV[i]);
+    }
+    m_polyCenterUV = boxUV.center();
 }

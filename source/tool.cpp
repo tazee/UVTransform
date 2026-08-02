@@ -8,6 +8,8 @@
 #include <iostream>
 #include <format>
 
+static CLxVector m_selection_centerUV;
+
 /*
  * On create we add our one tool attribute. We also allocate a vector type
  * and select mode mask.
@@ -167,7 +169,6 @@ LxResult CUVTransform::HitPolygon(CLxUser_VectorStack& vec)
             return LXe_FALSE;
         m_space.SetPolygon(mesh, xfrm, hit);
         SetTweakElement(hit);
-        m_selectionCenter = m_space.SelectionCenterUV(subject);
         return LXe_TRUE;
     }
     return LXe_FALSE;
@@ -253,11 +254,15 @@ LxResult CUVTransform::tmod_Down(ILxUnknownID vts, ILxUnknownID adjust)
     LXpToolScreenEvent*  spak = static_cast<LXpToolScreenEvent*>(vec.Read(offset_screen));
 	LXpToolViewEvent*    view = static_cast<LXpToolViewEvent *>(vec.Read (offset_view));
 
+    CLxUser_Subject2Packet subject;
+    vec.ReadObject(offset_subject, subject);
+
     CLxUser_EventTranslatePacket epkt;
 	vec.ReadObject (offset_event, epkt);
     epkt.GetNewPosition(vts, m_mousePos);
 
     m_part = ipak->part;
+    m_mouseDown = true;
 
     dyna_Value(ATTRa_TRANS_U).GetFlt(&m_trans0[0]);
     dyna_Value(ATTRa_TRANS_V).GetFlt(&m_trans0[1]);
@@ -270,8 +275,8 @@ LxResult CUVTransform::tmod_Down(ILxUnknownID vts, ILxUnknownID adjust)
 
     if (m_center_pivot)
     {
-        m_center0[0] = m_selectionCenter[0];
-        m_center0[1] = m_selectionCenter[1];
+        m_center0[0] = m_selection_centerUV[0];
+        m_center0[1] = m_selection_centerUV[1];
     }
 
     if ((m_part != -1) && (view->type == LXi_VIEWTYPE_3D))
@@ -347,6 +352,9 @@ LxResult CUVTransform::tmod_Down(ILxUnknownID vts, ILxUnknownID adjust)
             {
                 at.SetFlt(ATTRa_CENTER_U, m_space.m_centerUV.v[0]);
                 at.SetFlt(ATTRa_CENTER_V, m_space.m_centerUV.v[1]);
+                m_center3D = m_space.m_center3D;
+                m_selection_centerUV = m_space.SelectionCenterUV(subject);
+                m_selection_center3D = m_space.FindPos3D(m_selection_centerUV[0], m_selection_centerUV[1]);
                 if (m_center_pivot == false)
                 {
                     m_center0[0] = m_space.m_centerUV.v[0];
@@ -392,12 +400,22 @@ void CUVTransform::tmod_Move(ILxUnknownID vts, ILxUnknownID adjust)
 
     if (view->type == LXi_VIEWTYPE_3D)
     {
-        if (m_part == -1)
+        if ((m_part == -1) && (ipak->input == LXiTIE_INPUT_I0))
         {
             pos0 = m_space.Pos3DtoUV(m_mousePos);
             pos1 = m_space.Pos3DtoUV(new_pos);
             delta_u = pos1[0] - pos0[0];
             delta_v = pos1[1] - pos0[1];
+        }
+        else if ((m_part == -1) && (ipak->input == LXiTIE_INPUT_I1))
+        {
+            delta_u = (spak->fcx - spak->fpx) * m_view3D.PixelSize();
+            delta_v = (spak->fpy - spak->fcy) * m_view3D.PixelSize();
+        }
+        else if ((m_part == HANDLE_SCALE_U) || (m_part == HANDLE_SCALE_V))
+        {
+            delta_u = (spak->fcx - spak->fpx) * m_view3D.PixelSize();
+            delta_v = (spak->fpy - spak->fcy) * m_view3D.PixelSize();
         }
         else
         {
@@ -421,8 +439,8 @@ void CUVTransform::tmod_Move(ILxUnknownID vts, ILxUnknownID adjust)
 
     double trans_u = delta_u;
     double trans_v = delta_v;
-    double scale_u = delta_u * 2.5;
-    double scale_v = delta_v * 2.5;
+    double scale_u = delta_u;
+    double scale_v = delta_v;
 
     if (view->type == LXi_VIEWTYPE_3D)
     {
@@ -437,24 +455,39 @@ void CUVTransform::tmod_Move(ILxUnknownID vts, ILxUnknownID adjust)
         case HANDLE_PLANE:
             at.SetFlt(ATTRa_TRANS_U, m_trans0[0] + trans_u);
             at.SetFlt(ATTRa_TRANS_V, m_trans0[1] + trans_v);
+            if (view->type == LXi_VIEWTYPE_UV)
+            {
+                double u = m_center0[0] + trans_u;
+                double v = m_center0[1] + trans_v;
+                at.SetFlt(ATTRa_CENTER_U, u);
+                at.SetFlt(ATTRa_CENTER_V, v);
+            }
             break;
         case HANDLE_SCALE_U:
             scale_u += m_scale0[0];
+            if (scale_u < 0.0)
+                scale_u = 0.0;
             if (m_constrain)
+            {
                 scale_v = scale_u;
+                at.SetFlt(ATTRa_SCALE_U, scale_u);
+                at.SetFlt(ATTRa_SCALE_V, scale_v);
+            }
             else
-                scale_v += m_scale0[1];
-            at.SetFlt(ATTRa_SCALE_U, scale_u);
-            at.SetFlt(ATTRa_SCALE_V, scale_v);
+                at.SetFlt(ATTRa_SCALE_U, scale_u);
             break;
         case HANDLE_SCALE_V:
             scale_v += m_scale0[1];
+            if (scale_v < 0.0)
+                scale_v = 0.0;
             if (m_constrain)
+            {
                 scale_u = scale_v;
+                at.SetFlt(ATTRa_SCALE_U, scale_u);
+                at.SetFlt(ATTRa_SCALE_V, scale_v);
+            }
             else
-                scale_u += m_scale0[0];
-            at.SetFlt(ATTRa_SCALE_U, scale_u);
-            at.SetFlt(ATTRa_SCALE_V, scale_v);
+                at.SetFlt(ATTRa_SCALE_V, scale_v);
             break;
         case HANDLE_CENTER:
             if (m_center_pivot == true)
@@ -471,6 +504,7 @@ void CUVTransform::tmod_Move(ILxUnknownID vts, ILxUnknownID adjust)
                 u = m_center0[0] + trans_u;
                 v = m_center0[1] + trans_v;
             }
+            /*
             {
                 double d = (u - m_space.m_polyCenterUV[0]) * (u - m_space.m_polyCenterUV[0])
                          + (v - m_space.m_polyCenterUV[1]) * (v - m_space.m_polyCenterUV[1]);
@@ -480,6 +514,7 @@ void CUVTransform::tmod_Move(ILxUnknownID vts, ILxUnknownID adjust)
                     v = m_space.m_polyCenterUV[1];
                 }
             }
+            */
             at.SetFlt(ATTRa_CENTER_U, u);
             at.SetFlt(ATTRa_CENTER_V, v);
             break;
@@ -504,7 +539,7 @@ void CUVTransform::tmod_Move(ILxUnknownID vts, ILxUnknownID adjust)
             {
                 int dy = std::abs(spak->cy - spak->py);
                 int dx = std::abs(spak->cx - spak->px);
-                if (std::abs(dx - dy) < 5)
+                if (std::abs(dx - dy) < 10)
                     return;
                 m_constrain_axis = (dy > dx);
             }
@@ -513,13 +548,25 @@ void CUVTransform::tmod_Move(ILxUnknownID vts, ILxUnknownID adjust)
                 if (m_constrain)
                 {
                     if ((m_constrain_axis == -1) || (m_constrain_axis == 0))
-                        at.SetFlt(ATTRa_SCALE_U, m_scale0[0] + scale_u);
+                    {
+                        scale_u += m_scale0[0];
+                        if (scale_u < 0.0)
+                            scale_u = 0.0;
+                        at.SetFlt(ATTRa_SCALE_U, scale_u);
+                    }
                     if ((m_constrain_axis == -1) || (m_constrain_axis == 1))
-                        at.SetFlt(ATTRa_SCALE_V, m_scale0[1] + scale_v);
+                    {
+                        scale_v += m_scale0[1];
+                        if (scale_v < 0.0)
+                            scale_v = 0.0;
+                        at.SetFlt(ATTRa_SCALE_V, scale_v);
+                    }
                 }
                 else
                 {
                     double scale = m_scale0[0] + scale_u;
+                    if (scale < 0.0)
+                        scale = 0.0;
                     at.SetFlt(ATTRa_SCALE_U, scale);
                     at.SetFlt(ATTRa_SCALE_V, scale);
                 }
@@ -541,29 +588,11 @@ void CUVTransform::tmod_Up(ILxUnknownID vts, ILxUnknownID adjust)
     CLxUser_AdjustTool at(adjust);
     CLxUser_VectorStack vec(vts);
 	LXpToolViewEvent*    view = static_cast<LXpToolViewEvent *>(vec.Read (offset_view));
+    m_mouseDown = false;
     m_part = -1;
     m_offset = 0.0;
     m_sAngle = 0.0;
     m_eAngle = 0.0;
-    double trans_u, trans_v;
-    dyna_Value(ATTRa_TRANS_U).GetFlt(&trans_u);
-    dyna_Value(ATTRa_TRANS_V).GetFlt(&trans_v);
-    if ((trans_u != m_trans0[0]) || (trans_v != m_trans0[1]))
-    {
-        double u, v;
-        if (view->type == LXi_VIEWTYPE_3D)
-        {
-            u = m_center0[0] - (trans_u - m_trans0[0]);
-            v = m_center0[1] - (trans_v - m_trans0[1]);
-        }
-        else
-        {
-            u = m_center0[0] + (trans_u - m_trans0[0]);
-            v = m_center0[1] + (trans_v - m_trans0[1]);
-        }
-        at.SetFlt(ATTRa_CENTER_U, u);
-        at.SetFlt(ATTRa_CENTER_V, v);
-    }
     at.Invalidate();
 }
 
@@ -583,6 +612,9 @@ void CUVTransform::DrawHandles (ILxUnknownID vts, ILxUnknownID stroke, int flags
     if (m_space.Test() == false)
         return;
 
+    if ((m_part == -1) && m_mouseDown)
+        return;
+
     lx::MatrixIdent(m);
     LXx_VCLR(pos);
 
@@ -593,10 +625,17 @@ void CUVTransform::DrawHandles (ILxUnknownID vts, ILxUnknownID stroke, int flags
     dyna_Value(ATTRa_CENTER_U).GetFlt(&centerX);
     dyna_Value(ATTRa_CENTER_V).GetFlt(&centerY);
 
+    double transX, transY;
+    dyna_Value(ATTRa_TRANS_U).GetFlt(&transX);
+    dyna_Value(ATTRa_TRANS_V).GetFlt(&transY);
+
+    CLxVector center3D = m_center3D;
+
     if (center_pivot)
     {
-        centerX = m_selectionCenter[0];
-        centerY = m_selectionCenter[1];
+        centerX = m_selection_centerUV[0];
+        centerY = m_selection_centerUV[1];
+        center3D = m_selection_center3D;
     }
 
     if (view->type == LXi_VIEWTYPE_3D)
@@ -604,7 +643,7 @@ void CUVTransform::DrawHandles (ILxUnknownID vts, ILxUnknownID stroke, int flags
         CLxUser_View view(stroke);
         LXtVector ax, ay, az;
         lx::MatrixIdent(view_matrix);
-        CLxVector center3D = m_space.PosUVto3D(centerX, centerY);
+        center3D = m_space.FindPos3D(centerX, centerY);
         LXx_VCPY(view_pos, center3D.v);
         view.ScreenNormals(view_pos, ax, ay, az);
         LXx_VNEG(ay);
@@ -960,19 +999,25 @@ void CUVTransform::tool_Evaluate(ILxUnknownID vts)
 
     PolygonVisitor vis;
     int tweak, center_pivot;
+    double centerX, centerY;
     dyna_Value(ATTRa_TRANS_U).GetFlt(&vis.m_trans[0]);
     dyna_Value(ATTRa_TRANS_V).GetFlt(&vis.m_trans[1]);
     dyna_Value(ATTRa_ANGLE).GetFlt(&vis.m_angle);
     dyna_Value(ATTRa_SCALE_U).GetFlt(&vis.m_scale[0]);
     dyna_Value(ATTRa_SCALE_V).GetFlt(&vis.m_scale[1]);
-    dyna_Value(ATTRa_CENTER_U).GetFlt(&vis.m_center[0]);
-    dyna_Value(ATTRa_CENTER_V).GetFlt(&vis.m_center[1]);
+    dyna_Value(ATTRa_CENTER_U).GetFlt(&centerX);
+    dyna_Value(ATTRa_CENTER_V).GetFlt(&centerY);
     dyna_Value(ATTRa_TWEAK).GetInt(&tweak);
     dyna_Value(ATTRa_CENTER_PIVOT).GetInt(&center_pivot);
     if (center_pivot)
     {
-        vis.m_center[0] = m_selectionCenter[0];
-        vis.m_center[1] = m_selectionCenter[1];
+        vis.m_center[0] = m_selection_centerUV[0];
+        vis.m_center[1] = m_selection_centerUV[1];
+    }
+    else
+    {
+        vis.m_center[0] = centerX;
+        vis.m_center[1] = centerY;
     }
     vis.m_cost = std::cos(vis.m_angle);
     vis.m_sint = std::sin(vis.m_angle);
@@ -1030,6 +1075,25 @@ void CUVTransform::tool_Evaluate(ILxUnknownID vts)
     }
 
     scan.Apply();
+
+    m_selection_centerUV = m_space.SelectionCenterUV(subject);
+    m_center3D = m_space.FindPos3D(centerX, centerY);
+    m_selection_center3D = m_space.FindPos3D(m_selection_centerUV[0], m_selection_centerUV[1]);
+}
+
+int CUVTransformCommand::basic_CmdFlags()
+{
+    return LXfCMD_MODEL|LXfCMD_UNDO;
+}
+
+void CUVTransformCommand::basic_Execute(unsigned int flags)
+{
+	CLxUser_CommandService		cmd_svc;
+    std::string command;
+    command = std::format("tool.setAttr tool.uvTransform centerU {}", m_selection_centerUV[0]);
+	cmd_svc.ExecuteArgString (-1, LXiCTAG_NULL, command.c_str ());
+    command = std::format("tool.setAttr tool.uvTransform centerV {}", m_selection_centerUV[1]);
+	cmd_svc.ExecuteArgString (-1, LXiCTAG_NULL, command.c_str ());
 }
 
 /*
@@ -1046,4 +1110,8 @@ void initialize()
     srv->AddInterface(new CLxIfc_AttributesUI<CUVTransform>);
     srv->AddInterface(new CLxIfc_ChannelUI<CUVTransform>);
     lx::AddServer(SRVNAME_TOOL, srv);
+
+    srv = new CLxPolymorph<CUVTransformCommand>;
+	srv->AddInterface(new CLxIfc_Command<CUVTransformCommand>);
+    lx::AddServer(SRVNAME_COMMAND, srv);
 }
