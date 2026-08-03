@@ -53,7 +53,6 @@ const char* SRVNAME_COMMAND = "command.uvTransform";
 #define ATTRs_CENTER_U  "centerU"
 #define ATTRs_CENTER_V  "centerV"
 #define ATTRs_TWEAK     "tweak"
-#define ATTRs_CENTER_PIVOT "centerPivot"
 
 #define ATTRa_TRANS_U   0
 #define ATTRa_TRANS_V   1
@@ -63,7 +62,6 @@ const char* SRVNAME_COMMAND = "command.uvTransform";
 #define ATTRa_CENTER_U  5
 #define ATTRa_CENTER_V  6
 #define ATTRa_TWEAK     7
-#define ATTRa_CENTER_PIVOT   8
 
 #define HANDLE_CENTER   0x1000
 #define HANDLE_TRANS_U  0x2000
