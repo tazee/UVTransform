@@ -616,6 +616,10 @@ void CUVTransform::DrawHandles (ILxUnknownID vts, ILxUnknownID stroke, int flags
 	LXtMatrix		 m, view_matrix;
 	int			 dFlags = 0;
 
+    // skip drawing if the tool handle is invisible.
+    if ((flags & 0x03) == 0)
+        return;
+
 	LXpToolViewEvent* view = static_cast<LXpToolViewEvent *>(vec.Read (offset_view));
 	if (!view)
 		return;
