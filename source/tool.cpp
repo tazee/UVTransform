@@ -268,7 +268,7 @@ LxResult CUVTransform::tmod_Down(ILxUnknownID vts, ILxUnknownID adjust)
     dyna_Value(ATTRa_SCALE_V).GetFlt(&m_scale0[1]);
     dyna_Value(ATTRa_CENTER_U).GetFlt(&m_center0[0]);
     dyna_Value(ATTRa_CENTER_V).GetFlt(&m_center0[1]);
-    printf("[DOWN] m_scale0 %f %f part (%x) mode (%x)\n", m_scale0[0], m_scale0[1], ipak->part, ipak->mode);
+    //printf("[DOWN] m_scale0 %f %f part (%x) mode (%x)\n", m_scale0[0], m_scale0[1], ipak->part, ipak->mode);
 
     if (m_center_pivot)
     {
@@ -361,9 +361,10 @@ LxResult CUVTransform::tmod_Down(ILxUnknownID vts, ILxUnknownID adjust)
             if (view->type == LXi_VIEWTYPE_3D)
             {
                 CLxVector norm = m_space.TriangleNormal();
-                epkt.HitHandle(vts, m_space.m_center3D.v);
-                //epkt.SetPlanarConstraint(vts, m_space.m_center3D.v, norm.v);
-                LXx_VCPY(m_mousePos, m_space.m_center3D.v);
+                CLxVector center3D = m_space.TriangleCenter();
+                epkt.HitHandle(vts, center3D.v);
+                epkt.SetPlanarConstraint(vts, center3D.v, norm.v);
+                LXx_VCPY(m_mousePos, center3D.v);
             }
             break;
     }
@@ -526,17 +527,23 @@ void CUVTransform::tmod_Move(ILxUnknownID vts, ILxUnknownID adjust)
             m_view_matrix.getMatrix3x3(xfrm);
             m_rotHandle.MouseMove(new_pos);
             m_rotHandle.GetAngles(2, xfrm, &m_sAngle, &m_eAngle);
-            m_rotHandle.m_angle = (spak->fpx - spak->fcx) * 0.01;
-            m_eAngle = LXx_HALFPI;
-            m_sAngle = m_eAngle + m_rotHandle.m_angle;
-            if (m_constrain)
             {
-                double deg15 = LXx_PI / 12;
-                int snap15 = static_cast<int>((m_angle0 + m_rotHandle.m_angle) / deg15);
-                at.SetFlt(ATTRa_ANGLE, static_cast<double>(snap15 * deg15));
+                double angle = (spak->fpx - spak->fcx) * 0.01;
+                m_eAngle = LXx_HALFPI;
+                m_sAngle = m_eAngle + angle;
+                if (view->type == LXi_VIEWTYPE_3D)
+                {
+                    angle *= -1.0;
+                }
+                if (m_constrain)
+                {
+                    double deg15 = LXx_PI / 12;
+                    int snap15 = static_cast<int>((m_angle0 + angle) / deg15);
+                    at.SetFlt(ATTRa_ANGLE, static_cast<double>(snap15 * deg15));
+                }
+                else
+                    at.SetFlt(ATTRa_ANGLE, m_angle0 + angle);
             }
-            else
-                at.SetFlt(ATTRa_ANGLE, m_angle0 + m_rotHandle.m_angle);
             break;
         default:
             if (m_constrain && (m_constrain_axis == -1))
@@ -546,7 +553,6 @@ void CUVTransform::tmod_Move(ILxUnknownID vts, ILxUnknownID adjust)
                 if (std::abs(dx - dy) < 10)
                     return;
                 m_constrain_axis = (dy > dx);
-                printf("[MOVE] constrain axis %d dx %d dy %d\n", m_constrain_axis, dx, dy);
             }
             if (ipak->input == LXiTIE_INPUT_I1)
             {

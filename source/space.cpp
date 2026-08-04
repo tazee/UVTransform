@@ -214,9 +214,9 @@ void CSpaceTransform::DrawPolygon3D(CLxUser_StrokeDraw& draw, const LXpToolViewE
     m_matrix.getMatrix3x3(m);
     CLxVector translation = m_matrix.getTranslation();
     LXx_VCPY(v, translation.v);
+	draw.PushTransform (v, m);
 
     draw.SetPart (LXiHITPART_INVIS);
-	draw.PushTransform (v, m);
 
     draw.BeginW (LXiSTROKE_LINE_LOOP, draw_rgb, 0.8, 3.0);
     draw.Vertex (positions3D[m_index[0]], LXiSTROKE_ABSOLUTE);
@@ -283,7 +283,7 @@ void CSpaceTransform::DrawPolygonUV(CLxUser_StrokeDraw& draw, const LXpToolViewE
 }
 
 
-CLxVector CSpaceTransform::PosUVto3D (double u, double v)
+CLxVector CSpaceTransform::PosUVto3D (double u, double v, bool worldSpace)
 {
     if (Test() == false)
         return CLxVector();
@@ -316,11 +316,13 @@ CLxVector CSpaceTransform::PosUVto3D (double u, double v)
         CLxVector side3D = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
         pos3D = (side3D - cen3D) * f + cen3D;
     }
+    if (worldSpace == true)
+        pos3D = pos3D * m_matrix;
     return pos3D;
 }
 
 
-CLxVector CSpaceTransform::FindPos3D (double u, double v)
+CLxVector CSpaceTransform::FindPos3D (double u, double v, bool worldSpace)
 {
     if (Test() == false)
         return CLxVector();
@@ -339,11 +341,11 @@ CLxVector CSpaceTransform::FindPos3D (double u, double v)
     point.Select(vrtID);
     m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
     CLxVector pos0 = CLxVector(posUV);
-    polygon.VertexByIndex(m_index[1], &vrtID);
+    m_polygon.VertexByIndex(m_index[1], &vrtID);
     point.Select(vrtID);
     m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
     CLxVector pos1 = CLxVector(posUV);
-    polygon.VertexByIndex(m_index[2], &vrtID);
+    m_polygon.VertexByIndex(m_index[2], &vrtID);
     point.Select(vrtID);
     m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
     CLxVector pos2 = CLxVector(posUV);
@@ -381,6 +383,8 @@ CLxVector CSpaceTransform::FindPos3D (double u, double v)
                 pos1 = positions3D[index[1]];
                 pos2 = positions3D[index[2]];
                 pos3D = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
+                if (worldSpace == true)
+                    pos3D = pos3D * m_matrix;
                 return pos3D;
             }
         }
@@ -415,6 +419,8 @@ CLxVector CSpaceTransform::FindPos3D (double u, double v)
                     point.Pos(pos3d);
                     pos2  = CLxVector(pos3d);
                     pos3D = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
+                    if (worldSpace == true)
+                        pos3D = pos3D * m_matrix;
                     return pos3D;
                 }
             }
@@ -445,6 +451,8 @@ CLxVector CSpaceTransform::FindPos3D (double u, double v)
         CLxVector side3D = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
         pos3D = (side3D - cen3D) * f + cen3D;
     }
+    if (worldSpace == true)
+        pos3D = pos3D * m_matrix;
     return pos3D;
 }
 
@@ -459,6 +467,7 @@ CLxVector CSpaceTransform::Pos3DtoUV (const LXtVector pos3D)
     CLxVector pos2 = positions3D[m_index[2]];
     double s, t;
     CLxVector posUV;
+    hitPos = hitPos * m_matrix.inverse();
     if (MathUtil::PointInTriangle(hitPos, pos0, pos1, pos2, s, t) == true)
     {
         pos0 = positionsUV[m_index[0]];
@@ -494,9 +503,9 @@ CLxVector CSpaceTransform::ProjectPos3D (const LXtVector pos3D, const LXtVector 
     }
     CLxVector rayOrigin(pos3D);
     CLxVector rayVector(dir);
-    CLxVector pos0 = positions3D[m_index[0]];
-    CLxVector pos1 = positions3D[m_index[1]];
-    CLxVector pos2 = positions3D[m_index[2]];
+    CLxVector pos0 = positions3D[m_index[0]] * m_matrix;
+    CLxVector pos1 = positions3D[m_index[1]] * m_matrix;
+    CLxVector pos2 = positions3D[m_index[2]] * m_matrix;
     CLxVector outPos;
     double t;
     if (MathUtil::intersectPlaneAndRay(pos0, pos1, pos2, rayOrigin, rayVector, outPos, t))
@@ -508,7 +517,7 @@ CLxVector CSpaceTransform::ProjectPos3D (const LXtVector pos3D, const LXtVector 
 }
 
 
-CLxVector CSpaceTransform::TriangleNormal ()
+CLxVector CSpaceTransform::TriangleNormal (bool worldSpace)
 {
     if (Test() == false)
         return CLxVector(0,0,0);
@@ -519,11 +528,13 @@ CLxVector CSpaceTransform::TriangleNormal ()
     CLxVector vec1 = pos2 - pos0;
     CLxVector norm = vec0.cross(vec1);
     norm.normalize();
+    if (worldSpace == true)
+        norm = norm * m_matrix.asRotateMatrix();
     return norm;
 }
 
 
-CLxVector CSpaceTransform::TriangleCenter ()
+CLxVector CSpaceTransform::TriangleCenter (bool worldSpace)
 {
     if (Test() == false)
         return CLxVector(0,0,0);
@@ -532,6 +543,8 @@ CLxVector CSpaceTransform::TriangleCenter ()
     CLxVector pos1 = positions3D[m_index[1]];
     CLxVector pos2 = positions3D[m_index[2]];
     CLxVector cen3D = MathUtil::TrianglePoint(pos0, pos1, pos2, c, c);
+    if (worldSpace == true)
+        cen3D = cen3D * m_matrix;
     return cen3D;
 }
 

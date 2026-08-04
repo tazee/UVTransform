@@ -45,12 +45,12 @@ public:
     void UpdatePositionUV();
     void DrawPolygon3D(CLxUser_StrokeDraw& draw, const LXpToolViewEvent* view);
     void DrawPolygonUV(CLxUser_StrokeDraw& draw, const LXpToolViewEvent* view);
-    CLxVector PosUVto3D (double u, double v);
+    CLxVector PosUVto3D (double u, double v, bool worldSpace = true);
     CLxVector Pos3DtoUV (const LXtVector pos3D);
-    CLxVector FindPos3D (double u, double v);
+    CLxVector FindPos3D (double u, double v, bool worldSpace = true);
     CLxVector ProjectPos3D (const LXtVector pos3D, const LXtVector dir);
-    CLxVector TriangleNormal ();
-    CLxVector TriangleCenter ();
+    CLxVector TriangleNormal (bool worldSpace = true);
+    CLxVector TriangleCenter (bool worldSpace = true);
     CLxVector SelectionCenterUV (CLxUser_Subject2Packet& subject);
     bool Test();
 
