@@ -405,12 +405,7 @@ void CUVTransform::tmod_Move(ILxUnknownID vts, ILxUnknownID adjust)
             delta_u = pos1[0] - pos0[0];
             delta_v = pos1[1] - pos0[1];
         }
-        else if ((m_part == -1) && (ipak->input == LXiTIE_INPUT_I0) && m_constrain)
-        {
-            delta_u = (spak->fcx - spak->fpx) * m_view3D.PixelSize() * m_space.m_3d_uv_scale;
-            delta_v = (spak->fpy - spak->fcy) * m_view3D.PixelSize() * m_space.m_3d_uv_scale;
-        }
-        else if ((m_part == -1) && (ipak->input == LXiTIE_INPUT_I1))
+        else if ((m_part == -1) && (ipak->input == LXiTIE_INPUT_I1) && !m_constrain)
         {
             delta_u = (spak->fcx - spak->fpx) * m_view3D.PixelSize();
             delta_v = (spak->fpy - spak->fcy) * m_view3D.PixelSize();
@@ -548,11 +543,12 @@ void CUVTransform::tmod_Move(ILxUnknownID vts, ILxUnknownID adjust)
         default:
             if (m_constrain && (m_constrain_axis == -1))
             {
-                int dy = std::abs(spak->cy - spak->py);
-                int dx = std::abs(spak->cx - spak->px);
-                if (std::abs(dx - dy) < 10)
+                int dy = spak->cy - spak->py;
+                int dx = spak->cx - spak->px;
+                if (std::sqrt(dx * dx + dy * dy) < 10.0)
                     return;
-                m_constrain_axis = (dy > dx);
+                m_constrain_axis = (std::abs(delta_v) > std::abs(delta_u));
+                return;
             }
             if (ipak->input == LXiTIE_INPUT_I1)
             {
