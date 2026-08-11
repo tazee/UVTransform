@@ -53,6 +53,7 @@ const char* SRVNAME_COMMAND = "command.uvTransform";
 #define ATTRs_CENTER_U  "centerU"
 #define ATTRs_CENTER_V  "centerV"
 #define ATTRs_TWEAK     "tweak"
+#define ATTRs_HANDLE    "handle"
 
 #define ATTRa_TRANS_U   0
 #define ATTRa_TRANS_V   1
@@ -62,6 +63,7 @@ const char* SRVNAME_COMMAND = "command.uvTransform";
 #define ATTRa_CENTER_U  5
 #define ATTRa_CENTER_V  6
 #define ATTRa_TWEAK     7
+#define ATTRa_HANDLE    8
 
 #define HANDLE_CENTER   0x1000
 #define HANDLE_TRANS_U  0x2000
@@ -116,6 +118,12 @@ public:
     bool UVMapSetup(CLxUser_MeshMap& vmap);
     LxResult SetTweakElement(LXtHitElement& hit);
     CLxMatrix4 GetRotateMatrix();
+    void HandleVector(unsigned type, unsigned space, unsigned ix, LXtVector vec);
+
+    enum HandleSpace {
+        SPACE_SCREEN = 0,
+        SPACE_UV = 1,
+    };
 
     CLxUser_LogService   s_log;
     CLxUser_LayerService s_layer;
@@ -145,7 +153,7 @@ public:
     LXtVector m_trans0, m_scale0, m_center0;
     LXtVector m_mousePos, m_axis;
     CLxMatrix4 m_view_matrix;
-    CLxMatrix4 m_view_matrix_inv;
+    CLxMatrix4 m_uv3d_matrix;
     CRotationHandle m_rotHandle;
     CSpaceTransform m_space;
     int m_part;

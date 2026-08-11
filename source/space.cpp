@@ -388,6 +388,7 @@ CLxVector CSpaceTransform::FindPos3D (double u, double v, bool worldSpace)
                 return pos3D;
             }
         }
+/*
         unsigned int count;
         m_mesh.PolygonCount(&count);
         for (auto i = 0u; i < count; i++)
@@ -425,6 +426,7 @@ CLxVector CSpaceTransform::FindPos3D (double u, double v, bool worldSpace)
                 }
             }
         }
+*/
         m_polygon.VertexByIndex(m_index[0], &vrtID);
         point.Select(vrtID);
         m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
@@ -439,8 +441,8 @@ CLxVector CSpaceTransform::FindPos3D (double u, double v, bool worldSpace)
         pos2 = CLxVector(posUV);
         const double c = 1.0 / 3.0;
         CLxVector cenUV = MathUtil::TrianglePoint(pos0, pos1, pos2, c, c);
-        double w;
-        MathUtil::IntersectSegmentTriangle(cenUV, hitPos, pos0, pos1, pos2, s, t, w);
+        MathUtil::IntersectSegmentTriangle2D(cenUV, hitPos, pos0, pos1, pos2, s, t);
+        //printf("** FindPos3D s %f t %f\n", s, t);
         CLxVector sideUV = MathUtil::TrianglePoint(pos0, pos1, pos2, s, t);
         double l = (sideUV - cenUV).length();
         double f = (l > 0.0) ? ((hitPos - cenUV).length() / l) : 0.0;
@@ -637,4 +639,32 @@ void CSpaceTransform::UpdatePositionUV()
         boxUV.add(positionsUV[i]);
     }
     m_polyCenterUV = boxUV.center();
+}
+
+CLxMatrix4 CSpaceTransform::MatrixUVto3D()
+{
+    double c = 1.0 / 3.0;
+    CLxVector pos0 = positionsUV[m_index[0]];
+    CLxVector pos1 = positionsUV[m_index[1]];
+    CLxVector pos2 = positionsUV[m_index[2]];
+    CLxVector cenUV = MathUtil::TrianglePoint(pos0, pos1, pos2, c, c);
+    CLxVector posU(cenUV[0] + 0.01, cenUV[1], cenUV[2]);
+    CLxVector posV(cenUV[0], cenUV[1] + 0.01, cenUV[2]);
+    pos0 = positions3D[m_index[0]] * m_matrix;
+    pos1 = positions3D[m_index[1]] * m_matrix;
+    pos2 = positions3D[m_index[2]] * m_matrix;
+    CLxVector cen3D = MathUtil::TrianglePoint(pos0, pos1, pos2, c, c);
+    CLxVector vecX = PosUVto3D(posU[0], posU[1], true);
+    CLxVector vecY = PosUVto3D(posV[0], posV[1], true);
+    vecX = vecX - cen3D;
+    vecY = vecY - cen3D;
+    vecX.normalize();
+    vecY.normalize();
+    CLxVector vecZ = vecX.cross(vecY);
+    vecZ.normalize();
+    LXtMatrix m;
+    LXx_VSET3(m[0], vecX[0], vecY[0], vecZ[0]);
+    LXx_VSET3(m[1], vecX[1], vecY[1], vecZ[1]);
+    LXx_VSET3(m[2], vecX[2], vecY[2], vecZ[2]);
+    return CLxMatrix4(m);
 }

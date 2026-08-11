@@ -52,6 +52,7 @@ public:
     CLxVector TriangleNormal (bool worldSpace = true);
     CLxVector TriangleCenter (bool worldSpace = true);
     CLxVector SelectionCenterUV (CLxUser_Subject2Packet& subject);
+    CLxMatrix4 MatrixUVto3D ();
     bool Test();
 
     CLxUser_Mesh m_mesh;
@@ -82,4 +83,7 @@ public:
     std::vector<std::array<unsigned int,3>> triangles;
     std::vector<CLxVector> positions3D;
     std::vector<CLxVector> positionsUV;
+
+    CLxVector m_side3D, m_cen3D;
+    CLxVector m_sideUV, m_cenUV;
 };

@@ -515,6 +515,54 @@ namespace MathUtil {
 
         return false;
     }
+    
+    static double cross2d(CLxVector& a, CLxVector& b) 
+    {
+        return a[0] * b[1] - a[1] * b[0];
+    }
+    
+    static bool IntersectSegments(CLxVector& p1, CLxVector& p2, CLxVector& p3, CLxVector& p4, double& outT, CLxVector& outP)
+    {
+        CLxVector d1 = p2 - p1;
+        CLxVector d2 = p4 - p3;
+        
+        double denom = cross2d(d1, d2);
+        if (std::abs(denom) < 1e-9) {
+            return false; // 平行または同一直線上
+        }
+
+        CLxVector d3 = p3 - p1;
+        double t = cross2d(d3, d2) / denom;
+        double u = cross2d(d3, d1) / denom;
+
+        // 両方の線分の範囲内 (0.0 から 1.0 の間) に交点があるか
+        if (t >= 0.0 && t <= 1.0 && u >= 0.0 && u <= 1.0) {
+            outT = t;
+            outP = p1 + d1 * t;
+            return true;
+        }
+
+        return false;
+    }
+
+    static bool IntersectSegmentTriangle2D (
+        CLxVector& p0, CLxVector& p1,
+        CLxVector& v0, CLxVector& v1, CLxVector& v2,
+        double& outU, double& outV) 
+    {
+        double t;
+        CLxVector outP;
+        if (IntersectSegments(p0, p1, v0, v1, t, outP)) {
+            return PointInTriangle(outP, v0, v1, v2, outU, outV);
+        }
+        if (IntersectSegments(p0, p1, v1, v2, t, outP)) {
+            return PointInTriangle(outP, v0, v1, v2, outU, outV);
+        }
+        if (IntersectSegments(p0, p1, v2, v0, t, outP)) {
+            return PointInTriangle(outP, v0, v1, v2, outU, outV);
+        }
+        return false;
+    }
 
     static bool IntersectSegmentTriangle (
         CLxVector& p0, CLxVector& p1,
