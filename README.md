@@ -8,6 +8,8 @@ The reference polygon is the polygon displayed in magenda triangle in the 3D vie
 
 <b>Tear Off</b> split selected polygons from remaining polygons in UV space.
 
+<b>Handle Space</b> sets the direction of translate axis handle. <b>Screen</b> sets the axis handle to align 3D view screen. <b>UV</b> aligns the handle direction to match U or V direction of UV view. When dragging red handle, only U value is updated.
+
 This kit contains a direct modeling tool for Modo macOS and Windows.
 
 ## Installing
