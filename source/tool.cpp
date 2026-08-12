@@ -633,6 +633,7 @@ void CUVTransform::tmod_Up(ILxUnknownID vts, ILxUnknownID adjust)
     m_offset = 0.0;
     m_sAngle = 0.0;
     m_eAngle = 0.0;
+    m_uv3d_matrix = m_space.MatrixUVto3D();
     at.Invalidate();
 }
 
@@ -1105,7 +1106,7 @@ bool CUVTransform::GetCurrentUVMap(std::string& uvName)
  */
 void CUVTransform::tool_Evaluate(ILxUnknownID vts)
 {
-    //std::cout << "CUVTransform::tool_Evaluate: " << std::endl;
+    //std::cout << "CUVTransform::tool_Evaluate: " << m_polygon.test() << std::endl;
 
     CLxUser_VectorStack vec(vts);
     CLxUser_Subject2Packet subject;
@@ -1118,9 +1119,6 @@ void CUVTransform::tool_Evaluate(ILxUnknownID vts)
 
     std::string name;
     if (GetCurrentUVMap(name) == false)
-        return;
-
-    if (m_polygon.test() == false)
         return;
 
     PolygonVisitor vis;
@@ -1212,8 +1210,8 @@ void CUVTransform::tool_Evaluate(ILxUnknownID vts)
 
     scan.Apply();
 
-    //m_selection_centerUV = m_space.SelectionCenterUV(subject);
-    m_selection_centerUV = boxUV.center();
+    if (boxUV.isSet() == true)
+        m_selection_centerUV = boxUV.center();
     m_center3D = m_space.FindPos3D(centerX, centerY);
     m_selection_center3D = m_space.FindPos3D(m_selection_centerUV[0], m_selection_centerUV[1]);
 }

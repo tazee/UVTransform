@@ -19,6 +19,8 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, LX
     m_polygon.fromMesh(mesh);
     m_edge.fromMesh(mesh);
 
+    CLxVector hitPos(hit.lPos);
+
     LXtPolygonID polyID = nullptr;
     if (hit.type == LXiSEL_VERTEX)
     {
@@ -29,6 +31,15 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, LX
     {
         m_edge.Select(hit.edge);
         m_edge.PolygonByIndex(0, &polyID);
+        printf("-- edge polyID %p\n", polyID);
+        LXtPointID v0, v1;
+        LXtFVector pos0, pos1;
+        m_edge.Endpoints(&v0, &v1);
+        m_point.Select(v0);
+        m_point.Pos(pos0);
+        m_point.Select(v1);
+        m_point.Pos(pos1);
+        hitPos = MathUtil::ClosestPointOnSegment(hitPos, CLxVector(pos0), CLxVector(pos1));
     }
     else if (hit.type == LXiSEL_POLYGON)
     {
@@ -56,6 +67,7 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, LX
     m_polygon.Select(polyID);
     unsigned int nvert;
     m_polygon.VertexCount(&nvert);
+    printf("-- polygon %p nvert %u\n", polyID, nvert);
     if (nvert < 3)
     {
         m_polygon.clear();
@@ -81,7 +93,8 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, LX
         boxUV.add(positionsUV[i]);
         //printf("[%u] posUV %f %f %f\n", i, posUV[0], posUV[1], posUV[2]);
     }
-    m_polyCenterUV = boxUV.center();
+    if (boxUV.isSet())
+        m_polyCenterUV = boxUV.center();
 
     CLxUser_Point upnt;
     upnt.fromMesh(mesh);
@@ -103,7 +116,6 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, LX
     m_index = {0u, 1u, 2u};
     m_s = 0.0;
     m_t = 0.0;
-    CLxVector hitPos(hit.lPos);
     m_centerUV = positionsUV[0];
     if (hit.isUV)
     {
@@ -182,11 +194,19 @@ bool CSpaceTransform::SetPolygon(CLxUser_Mesh& mesh, const LXtMatrix4 matrix, LX
 
 bool CSpaceTransform::Test()
 {
-    if ((positions3D.size () < 3) || (positionsUV.size() < 3))
+    try
+    {
+        if ((positions3D.size () < 3) || (positionsUV.size() < 3))
+            return false;
+        if (m_polygon.test() == false)
+            return false;
+        return true;
+    }
+    catch (...)
+    {
+        printf("CSpaceTransform::Test() exception\n");
         return false;
-    if (m_polygon.test() == false)
-        return false;
-    return true;
+    }
 }
 
 
@@ -643,10 +663,21 @@ void CSpaceTransform::UpdatePositionUV()
 
 CLxMatrix4 CSpaceTransform::MatrixUVto3D()
 {
+    LXtPointID vrtID;
+    LXtFVector posUV;
+    m_polygon.VertexByIndex(m_index[0], &vrtID);
+    m_point.Select(vrtID);
+    m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
+    CLxVector pos0 = CLxVector(posUV);
+    m_polygon.VertexByIndex(m_index[1], &vrtID);
+    m_point.Select(vrtID);
+    m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
+    CLxVector pos1 = CLxVector(posUV);
+    m_polygon.VertexByIndex(m_index[2], &vrtID);
+    m_point.Select(vrtID);
+    m_polygon.MapEvaluate(m_vmap.ID(), vrtID, posUV);
+    CLxVector pos2 = CLxVector(posUV);
     double c = 1.0 / 3.0;
-    CLxVector pos0 = positionsUV[m_index[0]];
-    CLxVector pos1 = positionsUV[m_index[1]];
-    CLxVector pos2 = positionsUV[m_index[2]];
     CLxVector cenUV = MathUtil::TrianglePoint(pos0, pos1, pos2, c, c);
     CLxVector posU(cenUV[0] + 0.01, cenUV[1], cenUV[2]);
     CLxVector posV(cenUV[0], cenUV[1] + 0.01, cenUV[2]);
@@ -654,8 +685,8 @@ CLxMatrix4 CSpaceTransform::MatrixUVto3D()
     pos1 = positions3D[m_index[1]] * m_matrix;
     pos2 = positions3D[m_index[2]] * m_matrix;
     CLxVector cen3D = MathUtil::TrianglePoint(pos0, pos1, pos2, c, c);
-    CLxVector vecX = PosUVto3D(posU[0], posU[1], true);
-    CLxVector vecY = PosUVto3D(posV[0], posV[1], true);
+    CLxVector vecX = FindPos3D(posU[0], posU[1], true);
+    CLxVector vecY = FindPos3D(posV[0], posV[1], true);
     vecX = vecX - cen3D;
     vecY = vecY - cen3D;
     vecX.normalize();

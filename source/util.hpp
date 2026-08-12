@@ -610,6 +610,32 @@ namespace MathUtil {
 
         return true;
     }
+    
+    static CLxVector ClosestPointOnSegment(CLxVector p, CLxVector a, CLxVector b, double* outT = nullptr) 
+    {
+        CLxVector ab = b - a;
+        CLxVector ap = p - a;
+
+        // ab の二乗長（ゼロ除算防止用）
+        double abLenSq = ab.dot(ab);
+        
+        double t = 0.0;
+        if (abLenSq > 1e-12) {
+            // ベクトルAPをABに射影してパラメータ t を計算
+            t = ap.dot(ab) / abLenSq;
+            
+            // 0.0 から 1.0 の間にクランプ（線分の範囲内に制限）
+            if (t < 0.0) t = 0.0;
+            else if (t > 1.0) t = 1.0;
+        }
+
+        if (outT != nullptr) {
+            *outT = t;
+        }
+
+        // 最近傍点を返す: A + t * AB
+        return a + (ab * t);
+    }
 };
 
 
