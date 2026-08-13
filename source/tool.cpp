@@ -155,6 +155,8 @@ LxResult CUVTransform::HitPolygon(CLxUser_VectorStack& vec)
     CLxUser_Subject2Packet subject;
     vec.ReadObject(offset_subject, subject);
 
+	LXpToolXfrm*  tool_xfrm = static_cast<LXpToolXfrm *>(vec.Read (offset_xfrm));
+
 	LXtHitElement hit;
     if (rayPkt.HitClosest(vec, LXf_LAYER_ACTIVE, spak->fcx, spak->fcy, &hit))
     {
@@ -165,16 +167,19 @@ LxResult CUVTransform::HitPolygon(CLxUser_VectorStack& vec)
 
         mesh.set(hit.mesh);
         item.set(hit.item);
-        LXtMatrix4 xfrm;
+        LXtMatrix4 m4;
         CLxUser_Locator locator(item);
         CLxUser_Scene scene(item);
         CLxUser_ChannelRead chan(scene);
 		scene.GetChannels (chan, 0.0);
-        locator.WorldTransform4(chan, xfrm); 
+        //locator.WorldTransform4(chan, m4); 
         m_space.m_vmap.fromMesh(mesh);
         if (!UVMapSetup(m_space.m_vmap))
             return LXe_FALSE;
-        m_space.SetPolygon(mesh, xfrm, hit);
+        lx::Matrix4Ident(m4);
+        lx::Matrix4SetSubMatrix(m4, tool_xfrm->m, 1);
+        LXx_VCPY(m4[3], tool_xfrm->v);
+        m_space.SetPolygon(mesh, m4, hit);
         SetTweakElement(hit);
         return LXe_TRUE;
     }
@@ -633,7 +638,6 @@ void CUVTransform::tmod_Up(ILxUnknownID vts, ILxUnknownID adjust)
     m_offset = 0.0;
     m_sAngle = 0.0;
     m_eAngle = 0.0;
-    m_uv3d_matrix = m_space.MatrixUVto3D();
     at.Invalidate();
 }
 
@@ -1214,6 +1218,7 @@ void CUVTransform::tool_Evaluate(ILxUnknownID vts)
         m_selection_centerUV = boxUV.center();
     m_center3D = m_space.FindPos3D(centerX, centerY);
     m_selection_center3D = m_space.FindPos3D(m_selection_centerUV[0], m_selection_centerUV[1]);
+    m_uv3d_matrix = m_space.MatrixUVto3D();
 }
 
 int CUVTransformCommand::basic_CmdFlags()

@@ -663,6 +663,8 @@ void CSpaceTransform::UpdatePositionUV()
 
 CLxMatrix4 CSpaceTransform::MatrixUVto3D()
 {
+    if (Test() == false)
+        return CLxMatrix4();
     LXtPointID vrtID;
     LXtFVector posUV;
     m_polygon.VertexByIndex(m_index[0], &vrtID);
